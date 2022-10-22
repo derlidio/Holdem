@@ -7,4 +7,5 @@ Thumbs.db
 *.pyc
 .project
 .cproject
+.defold_tmp*
 builtins
