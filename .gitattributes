@@ -1,2 +1,2 @@
 *.go linguist-detectable=false
-*.script linguist-detectable=true
+*.script linguist-language=Lua
