@@ -4,7 +4,7 @@ This was my first experience with Defold and Lua programming. I'm not exactly pr
 of this code, but it shows how one can get from zero to something when it comes to
 learning a new programming language or framework.
 
-The original concept for this game was born during my attendance at the Digital Games
+The original concept for this game was born during my attendance of the Digital Games
 Design course at Cruzeiro do Sul university from 2007 to 2008.
 
 This project is available under the MIT license agreement, but I have to emphasize
