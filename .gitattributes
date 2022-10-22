@@ -1,1 +1,2 @@
 *.go linguist-detectable=false
+*.script linguist-detectable=true
