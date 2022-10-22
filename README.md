@@ -1,21 +1,16 @@
-# Welcome to Defold
+# Hold'em Solitaire
 
-This project was created from the "mobile" project template. This means that the settings in ["game.project"](defold://open?path=/game.project) have been changed to be suitable for a mobile game:
+This was my first experience with Defold and Lua programming. I'm not exactly proud
+of this code, but it shows how one can get from zero to something when it comes to
+learning a new programming language or framework.
 
-- The screen size is set to 640x1136
-- The projection is set to Fixed Fit
-- Orientation is fixed vertically
-- Android and iOS icons are set
-- Mouse click/single touch is bound to action "touch"
-- A simple script in a game object is set up to receive and react to input
-- Accelerometer input is turned off (for better battery life)
+The original concept for this game was born during my attendance at the Digital Games
+Design course at Cruzeiro do Sul university from 2007 to 2008.
 
-[Build and run](defold://build) to see it in action. You can of course alter these settings to fit your needs.
+This project is available under the MIT license agreement, but I have to emphasize
+that some assets (images) were licensed from FreePik Premium. Basically, all shields,
+swords, and crowns icons came from there. The rest of the assets are original art made
+by me, including images, sound fx, and soundtrack.
 
-Check out [the documentation pages](https://defold.com/learn) for examples, tutorials, manuals and API docs.
-
-If you run into trouble, help is available in [our forum](https://forum.defold.com).
-
-Happy Defolding!
-
+So, be warned that this code is free to use, but the assests are not!
 ---
