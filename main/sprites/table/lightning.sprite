@@ -1,0 +1,4 @@
+tile_set: "/main/tiles/lightning.tilesource"
+default_animation: "strike"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

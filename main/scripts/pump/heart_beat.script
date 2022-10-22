@@ -1,0 +1,27 @@
+go.property("initial_scale", vmath.vector3())
+
+function init(self)
+	self.initial_scale = go.get(".", "scale")
+end
+
+function on_message(self, message_id, message, sender)
+
+	local beat = vmath.vector3()
+	
+	if message_id == hash("start") then
+
+		beat.x = self.initial_scale.x + 0.1
+		beat.y = self.initial_scale.y + 0.1
+		beat.z = self.initial_scale.z + 0.1
+
+		go.animate(".", "scale", go.PLAYBACK_LOOP_PINGPONG, beat, go.EASING_INBOUNCE, 1)
+
+		return
+	end
+
+	if message_id == hash("stop") then
+		go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, self.initial_scale, go.EASING_LINEAR, 0.25)
+		return
+	end
+			
+end

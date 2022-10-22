@@ -1,0 +1,125 @@
+go.property("initial_position", vmath.vector3())
+go.property("initial_scale", vmath.vector3())
+go.property("hidden", false)
+go.property("active", false)
+go.property("enabled", false)
+
+function init(self)
+
+	self.initial_position = go.get(".", "position")
+	self.initial_scale = go.get(".", "scale")
+	
+	go.set("/hud/crown#crown", "tint.w", 0)
+
+	msg.post(".", "disable")
+
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("grow") then
+		if self.active then
+			local s = vmath.vector3()
+			s.x = self.initial_scale.x + 0.25
+			s.y = self.initial_scale.y + 0.25
+			s.z = 1
+			go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, s, go.EASING_OUTBOUNCE, 1, 0, shrink_crown)
+		end
+		return
+	end
+	
+	if message_id == hash("next") then
+		if level > 0 and self.active then
+			go.animate("/hud/crown#crown", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 2, 0, next_crown)
+		else
+			next_crown(self)
+		end
+		return
+	end
+
+	if message_id == hash("hide") then
+		if not self.hidden then
+			go.animate("/hud/crown#crown", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 2, 0, disable_crown)
+			particlefx.stop("/hud/crown#fog")
+		end
+		return
+	end
+	
+	if message_id == hash("stop_particles") then
+		if self.active then
+			particlefx.stop("/hud/crown#fog")
+		end
+		return
+	end
+
+	if message_id == hash("fire_particles") then
+		if self.active then
+			particlefx.play("/hud/crown#fog")
+		end
+		return
+	end
+	
+	if message_id == hash("reset") then
+		particlefx.stop("/hud/crown#fog")
+		go.set("/hud/crown#crown", "tint.w", 0)
+		sprite.play_flipbook("/hud/crown#crown", hash("Crown_1"))
+		self.active = false
+		return
+	end
+
+	if message_id == hash("click") then
+		if help_on then
+			msg.post("/help", "message", { text = "That's your contender's crown. You must level up to conquer it." } )
+		end
+	end
+	
+end
+
+function shrink_crown(self, url, property)
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, self.initial_scale, go.EASING_LINEAR, 1)
+end
+
+function next_crown(self, url, property)
+
+	self.active = true
+	
+	if level > 0 then 
+		particlefx.stop("/hud/crown#fog")
+		sprite.play_flipbook("/hud/crown#crown", hash("Crown_" .. (level + 1)))
+	end
+
+	go.set(".", "position.x",  640)
+	go.set(".", "position.y", -500)
+
+	go.set(".", "scale", vmath.vector3(2,2,1))
+
+	go.set("/hud/crown#crown", "tint.w", 1)
+
+	go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, self.initial_position.x, go.EASING_OUTBOUNCE, 2)
+	go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, self.initial_position.y, go.EASING_OUTBOUNCE, 2)
+
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, self.initial_scale, go.EASING_OUTBOUNCE, 2, 0, woble_crown)
+
+	if not self.enabled then
+		self.enabled = true
+		msg.post(".", "enable")
+	end
+	
+end
+
+function woble_crown(self, url, property)
+
+	go.set(".", "position", self.initial_position)
+
+	go.animate(".", "position.y", go.PLAYBACK_LOOP_PINGPONG, self.initial_position.y - 8, go.EASING_INOUTSINE, 4)
+	go.animate(".", "position.x", go.PLAYBACK_LOOP_PINGPONG, self.initial_position.x + 4, go.EASING_INOUTSINE, 8)
+
+	particlefx.play("/hud/crown#fog")
+
+end
+
+function disable_crown(self, url, property)
+	self.active = false
+	self.enabled = false
+	msg.post(".", "disable")
+end

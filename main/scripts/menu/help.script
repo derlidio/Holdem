@@ -1,0 +1,114 @@
+go.property("tapped", false)
+go.property("self_help", false)
+go.property("haste_help", false)
+
+function init(self)
+	
+	msg.post("#instructions", "disable")
+	msg.post("/help_balloon", "disable")
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		snd_play("/sound_fx#menu_click")
+		
+		if hint_playing or menu_active or options_active or game_over then
+			factory.create("/table#blocked")
+			return
+		end
+
+		if help_on then
+			help_on = false
+			particlefx.stop("/bubble#magic")
+			if not self.self_help then
+				self.self_help = true
+				show_help_hint("Are you kidding? This is me, The Orb that knows all! I'll not say it again.")
+			end
+		else
+			help_on = true
+			particlefx.play("/bubble#magic")
+			if not self.tapped then
+				self.tapped = true
+				show_help_label()
+			end
+		end
+		
+		return
+	end
+
+	if message_id == hash("hide") then
+		help_on = false
+		particlefx.stop("/bubble#magic")
+		sprite.play_flipbook("/bubble#sprite", "pop")
+		go.animate("/bubble#sprite", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.25, 0, show_bubble)
+		return
+	end
+
+	if message_id == hash("message") then
+		help_on = false
+		particlefx.stop("/bubble#magic")
+		show_help_hint(message.text)
+		return
+	end
+
+	if message_id == hash("haste") then
+		if not self.haste_help then
+			self.haste_help = true
+			show_help_hint("You must allow things to settle before making a move! One thing at a time.")
+		end
+	end
+
+end
+
+function show_help_hint(message)
+
+	hint_playing = true -- disable hints from other sources while showing this one...
+
+	label.set_text("/help_balloon#label", message)
+
+	go.set("/help_balloon#balloon", "tint.w", 0) 
+	go.set("/help_balloon#label",  "color.w", 0)
+
+	go.animate("/help_balloon#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5)
+	go.animate("/help_balloon#label", "color.w",  go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 0, hide_help_hint)
+	
+	msg.post("/help_balloon", "enable")
+	
+end
+
+function hide_help_hint(self, url, property)
+
+	go.animate("/help_balloon#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 4)
+	go.animate("/help_balloon#label","color.w",  go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 4, disable_help_hint)
+
+end
+
+function disable_help_hint(self, url, property)
+
+	msg.post("/help_balloon", "disable")
+
+	hint_playing = false
+
+end
+
+function show_bubble(self, url, property)
+	sprite.play_flipbook("/bubble#sprite", "still")
+	go.animate("/bubble#sprite", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 5)
+end
+
+function show_help_label()
+	go.set("#instructions", "color.w", 0)
+	go.animate("#instructions", "color.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.25, 0, hide_help_label)
+	msg.post("#instructions", "enable")
+end
+
+function hide_help_label()
+	go.animate("#instructions", "color.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.25, 2, disable_help_label)
+end
+
+function disable_help_label()
+	msg.post("#instructions", "disable")
+end

@@ -1,0 +1,81 @@
+go.property("initial_position", vmath.vector3())
+go.property("active", false)
+go.property("magic_selected", 0)
+
+function init(self)
+	msg.post(".", "disable")
+	self.initial_position = go.get(".", "position")
+end
+
+function on_message(self, message_id, message, sender)
+	
+	if message_id == hash("show") then
+
+		self.active = true
+		self.magic_selected = magic_selected
+		
+		if self.magic_selected < 9 then
+			go.set("/weapon", "position", self.initial_position)
+			go.set("/weapon#sword", "tint.w", 0)
+			go.animate("/weapon#sword", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.25)
+			go.animate("/weapon", "position.y", go.PLAYBACK_LOOP_PINGPONG, self.initial_position.y + 25, go.EASING_INOUTSINE, 3)
+			msg.post(".", "enable")
+			sprite.play_flipbook("/weapon#sword", hash("Sword_" .. self.magic_selected))
+		else
+			msg.post("/hud/scepter", "center")
+		end
+		particlefx.play("/weapon#magic_selected")
+		return
+	end
+
+	if message_id == hash("hide") then
+		if self.active then
+			self.active = false
+			if self.magic_selected < 9 then
+				go.animate("/weapon#sword", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.25, 0, hide_done)
+			else
+				msg.post("/hud/scepter", "return")
+			end
+			particlefx.stop("/weapon#magic_selected")
+			self.magic_selected = 0
+		end
+		return
+	end
+
+	if message_id == hash("hide_emitter") then
+		if self.active then
+			particlefx.stop("/weapon#magic_selected")
+		end
+		return
+	end
+
+	if message_id == hash("show_emitter") then
+		if self.active then
+			particlefx.play("/weapon#magic_selected")
+		end
+		return
+	end
+
+	if message_id == hash("reset") then
+		if self.active then
+			self.active = false
+			self.magic_selected = 0
+			particlefx.stop("/weapon#magic_selected")
+			go.cancel_animations("/weapon#sword", "tint.w")
+			go.cancel_animations("/weapon", "position.y")
+			msg.post(".", "disable")
+		end
+		return
+	end
+
+	if message_id == hash("click") then
+		if help_on then
+			msg.post("/help", "message", { text = "This is a Chapion's weapon you've conquered. Use it wisely!" } )
+		end
+	end
+
+end
+
+function hide_done(self, url, property)
+	msg.post(".", "disable")
+end

@@ -1,0 +1,68 @@
+go.property("initial_position", vmath.vector3())
+go.property("visible", false)
+
+function init(self)
+	
+	self.initial_position = go.get(".", "position")
+	
+	msg.post("/options/options", "disable")
+
+	go.set(".", "position.y", -512)
+
+end
+
+function on_message(self, message_id, message, sender)
+	
+	if message_id == hash("switch") then
+		snd_play("/sound_fx#gui_switch")
+		if self.visible then
+			msg.post("/options/options", "disable")
+			go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, -512, go.EASING_LINEAR, 0.25)
+			self.visible = false
+			options_active = false
+			msg.post("/hud/crown", "fire_particles")
+			msg.post("/hud/joker", "fire_particles")
+		else
+			msg.post("/options/options", "enable")
+			go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, self.initial_position, go.EASING_LINEAR, 0.25)
+			self.visible = true
+			options_active = true
+			msg.post("/hud/crown", "stop_particles")
+			msg.post("/hud/joker", "stop_particles")
+		end
+		return
+	end
+
+	if message_id == hash("change") then -- The user changed a configuration on the optiosn tab (from on/off or off/on)
+
+		if     message.id == hash("/options/info") then 
+				opt_info = message.state	
+		elseif message.id == hash("/options/praise_txt") then
+				opt_praise_text = message.state	
+		elseif message.id == hash("/options/praise_snd") then
+				opt_praise_voice = message.state
+		elseif message.id == hash("/options/scroll_txt") then
+				opt_hand_text = message.state
+		elseif message.id == hash("/options/scroll_snd") then
+				opt_hand_voice = message.state
+		elseif message.id == hash("/options/music") then
+				opt_music = message.state
+				if opt_music then
+					if soundtrack_id == 0 then
+						music_play()
+					end
+				else
+					if soundtrack_id ~= 0 then
+						music_stop()
+					end
+				end
+		elseif message.id == hash("/options/sound_fx") then
+				opt_sound = message.state
+				msg.post("/pump/heart_engine", "sound", { state = opt_sound } )
+		elseif message.id == hash("/options/tips") then
+				opt_tips = message.state
+		end
+		
+	end
+	
+end

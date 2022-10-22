@@ -1,0 +1,25 @@
+go.property("hitting", false)
+
+function init(self)
+	go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, 180, go.EASING_OUTBOUNCE, 1)
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("hit") then
+
+		local z = 180 - 180 * message.points / MAX_POINTS
+
+		if self.hitting == false then
+			self.hitting = true
+			go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, z, go.EASING_OUTBOUNCE, 1, 0, return_pointer)
+		end
+
+	end
+	
+end
+
+function return_pointer(self, url, property)
+	self.hitting = false
+	go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, 180, go.EASING_OUTBOUNCE, 1)
+end

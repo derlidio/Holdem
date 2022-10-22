@@ -1,0 +1,40 @@
+go.property("slot_number", 0)
+
+function init(self)
+	
+	if go.get_id() == hash("/slot_1") then
+		self.slot_number = 1
+	elseif go.get_id() == hash("/slot_2") then
+		self.slot_number = 2
+	elseif go.get_id() == hash("/slot_3") then
+		self.slot_number = 3
+	elseif go.get_id() == hash("/slot_4") then
+		self.slot_number = 4
+	elseif go.get_id() == hash("/slot_5") then
+		self.slot_number = 5
+	end	
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("hit") then
+		go.animate("#slot", "tint", go.PLAYBACK_ONCE_PINGPONG, vmath.vector4(1,2,1,1), go.EASING_LINEAR, 0.5)
+		return
+	end
+
+	if message_id == hash("click") then
+		if help_on then
+			if go.get_id() == hash("/slot_1") or go.get_id() == hash("/slot_2") then
+				msg.post("/help", "message", { text = "That's a hand slot. It's in the safe zone. Cards left there do not explode." })
+			else
+				if hand_slots[self.slot_number].unstable then
+					msg.post("/help", "message", { text = "That slot seems to be the target of an unstable magic power! Beware!" })
+				else
+					msg.post("/help", "message", { text = "That slot is not on the safe zone. Cards left there will blow up at round end!" })
+				end
+			end
+		end
+	end
+	
+end

@@ -1,0 +1,38 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		if help_on then
+			if go.get_id() == hash("/hud/btn_menu") then
+				msg.post("/help", "message", { text = "That's the Main Menu. There are some useful items there. You should take a look." } )
+			elseif go.get_id() == hash("/hud/btn_options") then
+				msg.post("/help", "message", { text = "That's the Options Menu. You can tweak some things there. You should take a look." } )
+			elseif go.get_id() == hash("/deck") then
+				msg.post("/help", "message", { text = "That shows how many cards are left on the deck, and the current game mode." } )
+			end
+			return
+		end
+		
+		snd_play("/sound_fx#menu_click")
+				
+		if go.get_id() == hash("/hud/btn_options") then
+			msg.post("/options/options", "switch")
+			return
+		end
+
+		if go.get_id() == hash("/hud/btn_menu") then
+			msg.post("/menu/menu", "switch")
+			return
+		end
+
+		if go.get_id() == hash("/deck") then
+			if menu_active or options_active or game_over then
+				factory.create("/table#blocked")
+				return
+			end
+			collectionfactory.create("/table#difficulty", vmath.vector3(640,360, 0.9), nil, nil, vmath.vector3(1.25, 1.25, 1.25))
+		end
+		
+	end
+	
+end

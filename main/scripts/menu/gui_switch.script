@@ -1,0 +1,35 @@
+go.property("state", true)
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		
+		snd_play("/card_fx#place")
+		
+		if self.state then
+			sprite.play_flipbook("#switch", hash("on_to_off"))
+		else
+			sprite.play_flipbook("#switch", hash("off_to_on"))
+		end
+
+		self.state = not self.state
+
+		msg.post("/options/options", "change", { id = go.get_id(), state = self.state } )
+		
+		return
+	end
+
+	if message_id == hash("state") then
+
+		if self.state ~= message.state then
+			self.state = message.state
+			if self.state then
+				sprite.play_flipbook("#switch", hash("on"))
+			else
+				sprite.play_flipbook("#switch", hash("off"))
+			end
+		end
+		
+	end
+	
+end

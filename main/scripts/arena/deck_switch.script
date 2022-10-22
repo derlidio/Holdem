@@ -1,0 +1,39 @@
+go.property("deck", false)
+
+function init(self)
+
+	go.set("#deck_2","tint.w", 0)
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("switch") then
+		
+		self.deck = not self.deck
+		
+		if self.deck then
+			go.animate("#deck_1", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 1)
+			go.animate("#deck_2", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 1)
+		else
+			go.animate("#deck_1", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 1)
+			go.animate("#deck_2", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 1)
+		end
+		return
+	end
+
+	if message_id == hash("difficulty") then
+		
+		if game_mode == MODE_EASY then
+			label.set_text("/deck#difficulty", "Easy")
+		elseif game_mode == MODE_NORMAL then
+			label.set_text("/deck#difficulty", "Casual")
+		elseif game_mode == MODE_HARD then
+			label.set_text("/deck#difficulty", "Hard")
+		elseif game_mode == MODE_EXTREME then
+			label.set_text("/deck#difficulty", "Extreme")
+		end
+		
+	end
+	
+end

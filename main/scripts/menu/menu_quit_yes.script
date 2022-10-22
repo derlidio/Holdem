@@ -1,0 +1,15 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		
+		disable_gui = false
+		snd_play("/sound_fx#answer")
+		msg.post("/fader", "fade_out", { delay = 0 } )
+
+		if opt_music then
+			msg.post(soundtrack_id, "fade_out")
+		end
+		
+	end
+
+end

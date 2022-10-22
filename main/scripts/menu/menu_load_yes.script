@@ -1,0 +1,398 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		loading_game = true
+		
+		snd_play("/sound_fx#answer")
+		
+		msg.post("/menu/load_msgbox", "disable")
+		msg.post("/menu/load_yes", "disable")
+		msg.post("/menu/load_no", "disable")
+
+		msg.post("/menu/menu", "switch")
+
+		if load_game(true) then -- Passing 'true' will tell the procedure this is an user action.
+			disable_gui = false -- Turn the flag to false only if game loading was OK. Otherwise, there will be a modal message. It will turn the flag when the user dispatches it.
+		end
+		
+		loading_game = false
+		
+	end
+
+end
+
+function load_game(user)
+
+	local file_path = ""
+
+	if user then
+		file_path = sys.get_save_file("Holdem", "holdem.game.dat")
+	else
+		file_path = sys.get_save_file("Holdem", "holdem.auto.dat")
+	end
+
+	local j = sys.load(file_path) -- the json file
+
+	if table.maxn(j) == 0 then
+		modal_message = "Ooops! There is no previously saved game to load!"
+		factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		return false
+	end		
+
+	if table.maxn(j) ~= 2 then
+		modal_message = "Ooops! The data on the saved game file do not conform!"
+		factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		return false
+	end
+
+	if j[1] ~= hash_to_hex(hash(j[2])) then
+		modal_message = "Ooops! The data on the saved file seems to be corrupted!"
+		factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		return false
+	end
+	
+	local data = json.decode(j[2])
+	
+	reset_arena()
+		
+	game_mode = data.game_mode
+
+	level = data.level
+	start = data.level + 1
+	round = data.round
+	score = data.score
+
+	msg.post("/deck", "difficulty")
+	msg.post("/hud/score", "update")
+		
+	create_chips(data.chips)
+
+	hint_old = data.hint_old
+	hint_locked = data.hint_locked
+	hint_wildcard = data.hint_wildcard
+	hint_destroy = data.hint_destroy
+	hint_magic_target = data.hint_magic_target
+	hint_magic_bounce = data.hint_magic_bounce
+	hint_magic_type = data.hint_magic_type
+	hint_magic_unstable = data.hint_magic_unstable
+	hint_magic_back = data.hint_magic_back
+	
+	msg.post("/hud/life_player#player_life", "life", { life = data.player } )
+	msg.post("/hud/life_enemy#enemy_life", "life", { life = data.enemy } )
+
+	deck_number = data.deck_number
+	deck_pointer = data.deck_pointer
+
+	local key = ""
+	local c = ""
+
+	local f = vmath.vector3() -- from point
+	local t = vmath.vector3() -- to point
+	local s = vmath.vector3() -- scale
+
+	local card = 0
+	
+	for i = 0, 52 do
+		key = tostring(i)
+		deck[i] = { suit = data.deck[key].suit, rank = data.deck[key].rank , locked = data.deck[key].locked}
+	end
+
+	f = go.get_position("/dealer#dealer")
+	
+	for i = 1, 8 do
+
+		key = tostring(i)
+
+		-- Clear all slot control flags:
+		--[[
+		table_slots[i].used = false
+		table_slots[i].suit = 0
+		table_slots[i].rank = 0
+		table_slots[i].card = 0
+		table_slots[i].solving = false
+		table_slots[i].skip = false
+		--]]
+
+		if data.table[key].used then
+
+			card = factory.create("/table#card_" .. data.table[key].properties.suit, f, nil , data.table[key].properties)
+			
+			table_slots[i].used = true
+			table_slots[i].suit = data.table[key].properties.suit
+			table_slots[i].rank = data.table[key].properties.rank
+			table_slots[i].card = card
+			
+			t = go.get_position("/table#table")
+			t.x = t.x + table_slots[i].ox
+			t.y = t.y + table_slots[i].oy
+
+			s.x = 2; s.y = 2; s.z = 1;
+
+			go.set(card, "scale", s)
+
+			s.x = 1; s.y = 1; s.z = 1;
+
+			go.animate(card, "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, load_landed)
+			go.animate(card, "scale"   , go.PLAYBACK_ONCE_FORWARD, s, go.EASING_LINEAR, 0.5)
+			go.animate(card, "euler.z" , go.PLAYBACK_ONCE_FORWARD, -360, go.EASING_LINEAR, 0.5)
+			
+		end
+		
+	end
+
+	snd_play("/card_fx#draw")
+
+	for i = 1, 5 do
+
+		key = tostring(i)
+
+		-- Clear all slot control flags:
+		--[[
+		hand_slots[i].used = false
+		hand_slots[i].suit = 0
+		hand_slots[i].rank = 0
+		hand_slots[i].card = 0
+		hand_slots[i].solving = false
+		hand_slots[i].skip = false
+		--]]
+		
+		-- The following two must be read from the save game state:
+		
+		hand_slots[i].unstable = data.hand[key].unstable
+		hand_slots[i].magic = data.hand[key].magic
+
+		-- Now, if there is a card on the saved game slot, create it:
+		
+		if data.hand[key].used then
+
+			card = factory.create("/table#card_" .. data.hand[key].properties.suit, f, nil , data.hand[key].properties)
+
+			hand_slots[i].used = true
+			hand_slots[i].suit = data.hand[key].properties.suit
+			hand_slots[i].rank = data.hand[key].properties.rank
+			hand_slots[i].card = card
+
+			t = go.get_position("/slot_" .. i .. "#slot")
+
+			s.x = 2; s.y = 2; s.z = 1;
+
+			go.set(card, "scale", s)
+
+			s.x = 1; s.y = 1; s.z = 1;
+
+			go.animate(card, "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, load_landed)
+			go.animate(card, "scale"   , go.PLAYBACK_ONCE_FORWARD, s, go.EASING_LINEAR, 0.5)
+			go.animate(card, "euler.z" , go.PLAYBACK_ONCE_FORWARD, -360, go.EASING_LINEAR, 0.5)
+
+		end
+
+	end
+
+	snd_play("/card_fx#draw")
+
+	--------------------
+	-- Do the laundry --
+	--------------------
+
+	-- Set the level and deck counters:
+	
+	label.set_text("/hud/level#label", tostring(start))
+	label.set_text("/deck#cards", string.format("%02d", 53 - deck_pointer))
+
+	--------------------------------------------------------------------------------------------
+	-- The code below is ALMOST the same of that in the initialization process of main.script --
+	--------------------------------------------------------------------------------------------
+	
+	if start <= 8 then
+		msg.post("/hud/crown", "next")
+		msg.post("/hud/shield", "next")
+		msg.post("/magic_".. start .."/button#magic", "tease")
+	end
+
+	if start <= 8 or start >= LEVEL_TWIST_3 - 1 then 
+		msg.post("/hud/banner_L", "show")
+		msg.post("/hud/banner_R", "show")
+	end
+
+	-- The pump must be activated at the correct level:
+
+	if start >= LEVEL_TWIST_1 then
+		msg.post("/pump/heart_engine", "activate")
+	end
+
+	if start >= LEVEL_TWIST_3 - 1 then
+
+		msg.post("/magic_9/button#magic", "reveal", { animate = false } )
+		msg.post("/magic_10/button#magic", "reveal", { animate = false } )
+
+		joker_active = true
+
+		msg.post("/hud/joker", "show")
+		msg.post("/hud/scepter", "show", { magic_selected = data.magic_selected } )
+
+		if start == LEVEL_TWIST_3 then msg.post("/magic_9/button#magic", "tease") end
+		if start == LEVEL_TWIST_3 + 1 then msg.post("/magic_10/button#magic", "tease") end
+
+	end
+	
+	-- Set the saved sate for the magic slots:
+	
+	magic_selected = data.magic_selected
+	
+	for i = 1, 10 do
+		key = tostring(i)
+		msg.post("/magic_" .. i .. "/button#magic","conform", data.magic[key])
+	end
+	
+	-- Reset the start variable so the game thinks it started from level zero:
+
+	start = 0
+
+	return true
+	
+end
+
+function load_landed(self, url, property)
+
+	msg.post(url, "position")
+
+end
+
+function reset_arena()
+
+	-- Clear all flags and variables:
+
+	start = 0
+	level = 0
+	round = 0
+	score = 0
+	
+	deck = {}
+	deck_pointer = 0
+	deck_number = 0
+
+	round_delay = 0
+
+	round_dealing = false
+	round_evaluating = false
+	round_picking = false
+	round_sorting = false
+	round_animating = false
+	round_cleaning = false
+	round_finished = false
+	round_unstable = 0
+	round_attack = true -- ** no attack right after loading **
+	round_attacking = false
+
+	closing_gaps = false
+
+	semaphore_sort = false
+	semaphore_gap = false
+	semaphore_clean = false
+
+	sort_on_land = false
+
+	magic_selected = 0
+
+	level_up = false
+	level_up_stage = 0
+	level_up_delay = 0
+	level_up_stage = 0
+	level_up_delay = 0
+
+	hint_playing = false
+	hint_old = false
+	hint_locked = false
+	hint_wildcard = false
+	hint_destroy = false
+	hint_magic_target = false
+	hint_magic_bounce = false
+	hint_magic_type = false
+	hint_magic_unstable = false
+	hint_magic_back = false
+
+	chips_spent = false
+	cancel_tip = false
+	table_cleared = false
+	combinations_calc = false
+	joker_active = false
+
+	-- Delete all cards already in game:
+
+	for i = 1, 8 do
+		if table_slots[i].used then
+			go.delete(table_slots[i].card)
+		end
+		table_slots[i].used = false
+		table_slots[i].suit = 0
+		table_slots[i].rank = 0
+		table_slots[i].card = 0
+		table_slots[i].solving = false
+		table_slots[i].skip = false
+	end
+
+	for i = 1, 5 do
+		if hand_slots[i].used then
+			go.delete(hand_slots[i].card)
+		end
+		hand_slots[i].used = false
+		hand_slots[i].suit = 0
+		hand_slots[i].rank = 0
+		hand_slots[i].card = 0
+		hand_slots[i].solving = false
+		hand_slots[i].skip = false
+		hand_slots[i].unstable = false
+		hand_slots[i].magic = 0
+	end
+
+	-- Reset all magic slots to their initial (disabled) state. They will
+	-- be readjusted further to the saved game state. It is important for
+	-- this process to work that they are, at first, in their initial state.
+
+	for i = 1, 10 do
+		key = tostring(i)
+		msg.post("/magic_" .. i .. "/button#magic","reset")
+	end
+	
+	-- Deactivate elements:
+
+	msg.post("/pump/heart_engine", "reset")
+	msg.post("/hud/banner_L", "reset")
+	msg.post("/hud/banner_R", "reset")
+	msg.post("/hud/crown", "reset")
+	msg.post("/hud/shield", "reset")
+	msg.post("/hud/joker", "reset")
+	msg.post("/hud/scepter", "reset")
+	msg.post("/weapon#weapon", "reset")
+
+	msg.post("/last_hand", "hide")
+
+	if game_over then
+		go.animate("/table#crack", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.25, 0, disable_table_crack)
+	end
+	
+	game_over = false
+
+	return true
+	
+end
+
+function disable_table_crack(self, url, property)
+	msg.post("/table#crack", "disable")
+end
+
+function unscramble(data)
+
+	local p = 0
+	local s = ""
+
+	for i = 1, string.len(data) do
+		s = s .. string.char(bit.bxor(string.byte(string.sub(data, i, i)),p))
+		p = p + 1
+		if p == 255 then p = 0 end
+	end
+
+	return s
+
+end

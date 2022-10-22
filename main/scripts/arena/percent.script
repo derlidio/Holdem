@@ -1,0 +1,32 @@
+go.property("value", 0)
+
+function init(self)
+
+	local y = go.get(".", "position.y")
+
+	if self.value ~= 0 then
+		label.set_text("#percent", tostring(self.value))
+	end
+	
+	go.set("#percent", "color.w", 0)
+		
+	go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, y + 48, go.EASING_LINEAR, 1)
+	go.animate("#percent", "color.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 0, hide_percent)
+
+end
+
+function hide_percent(self, url, property)
+
+	sprite.play_flipbook("#pill_red", hash("red_fill"))
+	sprite.play_flipbook("#pill_green", hash("green_drain"))
+
+	go.animate("#pill_red",   "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0.5)
+	go.animate("#pill_green", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0.5)
+		
+	go.animate("#percent", "color.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0.5, delete_percent)
+	
+end
+
+function delete_percent(self, url, property)
+	go.delete()
+end

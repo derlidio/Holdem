@@ -1,0 +1,51 @@
+go.property("sf", vmath.vector3()) -- strike from - origin
+go.property("st", vmath.vector3()) -- strike to - target
+
+function init(self)
+	msg.post(".", "disable")
+	self.sf = go.get(".", "position")
+end
+
+function on_message(self, message_id, message, sender)
+
+	local st = vmath.vector3()
+
+	local mx = 0
+	local my = 0
+	
+	if message_id == hash("fire") then
+
+		go.set(".", "position", self.sf)
+		msg.post(".", "enable")
+		
+		self.st = message.st
+
+		mx = self.sf.x + (self.st.x - self.sf.x) / 2
+		my = self.sf.y + 100
+
+		go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, my, go.EASING_OUTEXPO, 1)
+		go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, mx, go.EASING_LINEAR, 1, 0, fireball_descend)
+
+		particlefx.play("#fireball")
+		
+		snd_play("/sound_fx#fireball_launch")
+		
+		return
+	end
+	
+end
+
+function fireball_descend(self, url, property)
+	
+	go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, self.st.y, go.EASING_INSINE, 1)
+	go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, self.st.x, go.EASING_LINEAR, 1, 0, fireball_disable)
+	
+end
+
+function fireball_disable(self, url, property)
+
+	snd_play("/sound_fx#fireball_hit")
+	particlefx.stop("#fireball")
+	msg.post(".", "disable")
+	
+end

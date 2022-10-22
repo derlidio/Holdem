@@ -1,0 +1,33 @@
+function init(self)
+
+	msg.post(".", "disable")
+	go.set(".", "scale", vmath.vector3(0,0,1))
+
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("show") and opt_praise_text then
+
+		msg.post(".", "enable")
+
+		label.set_text("#text", message.text)
+		label.set_text("#shadow", message.text)
+
+		go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1,1,1), go.EASING_OUTBOUNCE, 0.5, 0, hide_banner)
+
+	end
+
+end
+
+function hide_banner(self, url, property)
+
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(0,0,1), go.EASING_LINEAR, 0.25, 0.5, disable_banner)
+
+end
+
+function disable_banner(self, url, property)
+
+	msg.post(".", "disable")
+
+end

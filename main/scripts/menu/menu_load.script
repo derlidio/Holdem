@@ -1,0 +1,19 @@
+function on_message(self, message_id, message, sender)
+	
+	if message_id == hash("click") then
+
+		go.set("/menu/load_msgbox", "scale", vmath.vector3(0,0,1))
+		go.animate("/menu/load_msgbox", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1,1,1), go.EASING_OUTBOUNCE, 0.25)
+		
+		msg.post("/menu/load_msgbox", "enable")
+		msg.post("/menu/load_yes", "enable")
+		msg.post("/menu/load_no", "enable")
+
+		snd_play("/sound_fx#question")
+		
+		disable_gui = true
+		
+	end
+
+end
+

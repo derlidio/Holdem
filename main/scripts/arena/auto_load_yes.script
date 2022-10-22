@@ -1,0 +1,21 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		disable_gui = false
+
+		snd_play("/sound_fx#answer")
+		
+		msg.post("/auto_load", "disable")
+		msg.post("/auto_load_no", "disable")
+		msg.post("/auto_load_yes", "disable")
+
+		auto_load = true
+
+		load_game(false) -- Passing 'false' will tell the procedure this is an auto-saved state loading.
+
+		particlefx.stop("/feather#feather_ink")
+		
+	end
+
+end

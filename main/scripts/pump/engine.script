@@ -1,0 +1,172 @@
+go.property("initial_position", vmath.vector3())
+go.property("active", false)
+go.property("visible", false)
+go.property("balloon", false)
+go.property("balloon_delta", 3)
+
+function init(self)
+
+	self.initial_position = go.get(".", "position")
+
+	set_engine_state(self, "disable")
+
+	msg.post("/pump/balloon", "disable")
+
+end
+
+function update(self, dt)
+
+	if self.active then
+
+		if not self.balloon and not hint_playing then
+
+			if self.balloon_delta > 0 then
+				
+				self.balloon_delta = self.balloon_delta - dt
+				
+				if self.balloon_delta < 0 then
+					self.balloon = true
+					self.balloon_delta = 0
+					show_engine_hint(self, "")
+				end
+			end
+		end
+	end
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("activate") then
+		go.set(".", "position.y", -200)
+		go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, self.initial_position, go.EASING_OUTBOUNCE, 1, 0, activate_engine)
+		set_engine_state(self, "enable")
+		return
+	end
+	
+	if message_id == hash("start") then
+		if not self.active then 
+			activate_engine(self) 
+		end
+		return
+	end
+
+	if message_id == hash("stop") then
+		if self.active then 
+			deactivate_engine(self)
+		end
+		return
+	end
+
+	if message_id == hash("sound") then
+		if self.active then
+			if message.state then
+				snd_play("/sound_fx#gears_run")
+			else
+				sound.stop("/sound_fx#gears_run")
+			end
+		end
+	end
+
+	if message_id == hash("reset") then
+		if self.active then
+			deactivate_engine(self)
+		end
+		set_engine_state(self, "disable")
+	end
+
+	if message_id == hash("click") then
+		if help_on then
+			show_engine_hint(self, "")
+			msg.post("/help", "hide")
+		end
+	end
+	
+end
+
+function set_engine_state(self, state)
+
+	msg.post("/pump/heart_engine", state) -- Sadly, this doesn't work to disable all children! :o/
+
+	msg.post("/pump/lever",  state)
+	msg.post("/pump/gear_1", state)
+	msg.post("/pump/gear_2", state)
+	msg.post("/pump/gear_3", state)
+	msg.post("/pump/heart",  state)
+	msg.post("/pump/wire",   state)
+
+	if state == "enable" then
+		self.visible = true
+	else
+		self.visible = false
+	end
+
+end
+
+function activate_engine(self, url, property)
+
+	if go.get("/hud/life_enemy#enemy_life", "life") >= 1 then return end
+	
+	self.active = true
+	
+	msg.post("/pump/heart", "start")
+		
+	msg.post("/pump/lever", "spin")
+	msg.post("/pump/gear_1", "spin")
+	msg.post("/pump/gear_2", "spin")
+	msg.post("/pump/gear_3", "spin")
+
+	msg.post("/hud/life_enemy", "pump", { active = true } )
+	
+	snd_play("/sound_fx#gears_run")
+	
+end
+
+function deactivate_engine(self, url, property)
+
+	self.active = false
+
+	msg.post("/pump/heart", "stop")
+		
+	msg.post("/pump/lever", "stop")
+	msg.post("/pump/gear_1", "stop")
+	msg.post("/pump/gear_2", "stop")
+	msg.post("/pump/gear_3", "stop")
+
+	msg.post("/hud/life_enemy", "pump", { active = false } )
+
+	sound.stop("/sound_fx#gears_run")
+
+end
+
+function show_engine_hint(self, message)
+
+	if not opt_info and not help_on then return end
+
+	hint_playing = true
+	
+	if message ~= "" then
+		label.set_text("/magic_" .. self.slot_id .. "/balloon#label", message)
+	end
+
+	go.set("/pump/balloon#balloon", "tint.w", 0)
+	go.set("/pump/balloon#label", "color.w", 0)
+
+	go.animate("/pump/balloon#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5)
+	go.animate("/pump/balloon#label","color.w",  go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 0, hide_engine_hint)
+	
+	msg.post("/pump/balloon", "enable")
+	
+end
+
+function hide_engine_hint(self, url, property)
+
+	go.animate("/pump/balloon#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 5, disable_engine_hint)
+	go.animate("/pump/balloon#label","color.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 5)
+
+end
+
+function disable_engine_hint(self, url, property)
+	hint_playing = false
+	msg.post("/pump/balloon", "disable")
+end

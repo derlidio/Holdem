@@ -1,0 +1,183 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		
+		disable_gui = false
+
+		snd_play("/sound_fx#answer")
+
+		msg.post("/menu/save_msgbox", "disable")
+		msg.post("/menu/save_yes", "disable")
+		msg.post("/menu/save_no", "disable")
+		
+		msg.post("/menu/menu", "switch")
+
+		save_game(true) -- Passing 'true' will tell the saving routine this is a user action.
+
+	end
+
+end
+
+function save_game(user)
+
+	local file_path = ""
+
+	if user then
+		file_path = sys.get_save_file("Holdem", "holdem.game.dat")
+	else
+		file_path = sys.get_save_file("Holdem", "holdem.auto.dat")
+	end
+
+	local j = get_game_state() -- the json data.
+
+	local save = {}
+
+	table.insert(save, hash_to_hex(hash(j)))
+	table.insert(save, j)
+
+	if not sys.save(file_path, save) then
+		if user then -- show message only if this has been started by the user
+			modal_message = "Ooops! Something went wrong. Could not save the game. We're sorry for the inconvenience! :("
+			factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		end
+	else
+		if user then
+			modal_message = "Game successfully saved!"
+			factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		end
+	end
+
+end
+
+function get_game_state()
+
+	local c = "" -- comma
+	local j = "" -- json
+	local d = "" -- deck
+	local t = "" -- table
+	local h = "" -- hand
+	local m = "" -- magic
+
+	-- All the cards on the current deck:
+	
+	d = "{"
+	c = ","
+	for i = 0, 52 do
+		if i == 52 then c = "}" end
+		d = d .. '"' .. i .. '":{' .. '"suit":' .. deck[i].suit .. ',"rank":' ..deck[i].rank  .. ',"locked":' .. tostring(deck[i].locked)  .."}" .. c
+	end
+
+	-- All the cards on the player's hand:
+	
+	h = "{"
+	c = ","
+	for i = 1, 5 do
+		if i == 5 then c = "}" end
+		h = h .. '"' .. i .. '":{'
+		h = h .. '"used":' .. tostring(hand_slots[i].used) .. ','
+		h = h .. '"unstable":' .. tostring(hand_slots[i].unstable) .. ','
+		h = h .. '"magic":' .. hand_slots[i].magic .. ','
+		h = h .. get_card_properties(hand_slots[i].card) .. "}" .. c
+	end
+
+	-- All the cards on the table:
+	
+	t = "{"
+	c = ","
+	for i = 1, 8 do
+		if i == 8 then c = "}" end
+		t = t .. '"' .. i .. '":{"used":' .. tostring(table_slots[i].used) .. ',' .. get_card_properties(table_slots[i].card) .. "}" .. c
+	end
+
+	-- All magic slots properties:
+
+	m = "{"
+	c = ","
+	for i = 1, 10 do
+		if i == 10 then c = "" end
+		m = m .. '"' .. i .. '":{'
+		m = m .. '"active":' .. tostring(go.get("/magic_" .. i .. "/button#magic","active")) .. ","
+		m = m .. '"enabled":' .. tostring(go.get("/magic_" .. i .. "/button#magic","enabled")) .. ","
+		m = m .. '"unstable":' .. tostring(go.get("/magic_" .. i .. "/button#magic","unstable")) .. ","
+		m = m .. '"balloon":' .. tostring(go.get("/magic_" .. i .. "/button#magic","balloon")) .. ","
+		m = m .. '"charges":' .. go.get("/magic_" .. i .. "/button#magic","charges") .. ","
+		m = m .. '"target":' .. go.get("/magic_" .. i .. "/button#magic","target")
+		m = m .. "}" .. c
+	end
+	m = m .. "}"
+
+	-- Joint the collected above with the single flags and variables:
+
+	j = j .. "{"
+	
+	j = j .. '"game_mode":' .. game_mode .. ","
+	j = j .. '"level":' .. level .. ","
+	j = j .. '"round":' .. round .. ","
+	j = j .. '"score":' .. score .. ","
+	j = j .. '"chips":' .. chips .. ","
+	j = j .. '"player":' .. go.get("/hud/life_player#player_life", "life") .. ","
+	j = j .. '"enemy":' .. go.get("/hud/life_enemy#enemy_life", "life") .. ","
+	j = j .. '"deck_number":' .. deck_number .. ","
+	j = j .. '"deck_pointer":' .. deck_pointer .. ","
+	j = j .. '"magic_selected":' .. magic_selected .. ","
+	j = j .. '"hint_old":' .. tostring(hint_old) .. ","
+	j = j .. '"hint_locked":' .. tostring(hint_locked) .. ","
+	j = j .. '"hint_wildcard":' .. tostring(hint_wildcard) .. ","
+	j = j .. '"hint_destroy":' .. tostring(hint_destroy) .. ","
+	j = j .. '"hint_magic_target":' .. tostring(hint_magic_target) .. ","
+	j = j .. '"hint_magic_bounce":' .. tostring(hint_magic_bounce) .. ","
+	j = j .. '"hint_magic_type":' .. tostring(hint_magic_type) .. ","
+	j = j .. '"hint_magic_unstable":' .. tostring(hint_magic_unstable) .. ","
+	j = j .. '"hint_magic_back":' .. tostring(hint_magic_back) .. ","
+	
+	j = j .. '"deck":' .. d .. ","
+	j = j .. '"hand":' .. h .. ","
+	j = j .. '"table":' .. t .. ","
+	j = j .. '"magic":' .. m
+	
+	j = j .. "}"
+
+	return j
+
+end
+
+function get_card_properties(card)
+
+	if card == 0 then
+		return '"properties":{}'
+	end
+
+	local p = "" -- properties
+	local c = msg.url(nil, card, "card")
+
+	p = p .. '"slot_number":' .. go.get(c,"slot_number") .. ","
+	p = p .. '"slot_type":' .. go.get(c,"slot_type") .. ","
+	p = p .. '"suit":' .. go.get(c,"suit") .. ","
+	p = p .. '"rank":' .. go.get(c,"rank") .. ","
+	p = p .. '"deck":' .. go.get(c,"deck") .. ","
+	p = p .. '"ice":' .. tostring(go.get(c,"ice")) .. ","
+	p = p .. '"old":' .. tostring(go.get(c,"old")) .. ","
+	p = p .. '"ghost":' .. tostring(go.get(c,"ghost")) .. ","
+	p = p .. '"locked":' .. tostring(go.get(c,"locked")) .. ","
+	p = p .. '"self_destroy":' .. tostring(go.get(c,"self_destroy"))
+
+	p = '"properties":{' .. p .. '}'
+
+	return p
+
+end
+
+function scramble(data)
+
+	local p = 0
+	local s = ""
+	
+	for i = 1, string.len(data) do
+		s = s .. string.char(bit.bxor(string.byte(string.sub(data, i, i)),p))
+		p = p + 1
+		if p == 255 then p = 0 end
+	end
+	
+	return s
+	
+end

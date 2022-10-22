@@ -1,0 +1,4 @@
+tile_set: "/main/atlases/hud.atlas"
+default_animation: "shake_back"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

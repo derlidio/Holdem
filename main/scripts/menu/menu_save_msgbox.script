@@ -1,0 +1,8 @@
+function init(self)
+	
+	msg.post(".", "disable")
+	msg.post("/menu/save_yes", "disable")
+	msg.post("/menu/save_no", "disable")
+	
+end
+

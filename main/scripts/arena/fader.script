@@ -1,0 +1,27 @@
+function init(self)
+	go.set(".", "scale", vmath.vector3(10.1,10.1,10.1))
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("fade_in") then -- reveal what is on the render pipeline
+		go.set("/fader#black", "tint.w", 1)
+		go.animate("/fader#black", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, message.delay, disable_fader)
+		msg.post(".", "enable")
+	end
+
+	if message_id == hash("fade_out") then -- fade the screen to black (this happens only at game end)
+		go.set("/fader#black", "tint.w", 0)
+		go.animate("/fader#black", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, message.delay, exit_game)
+		msg.post(".", "enable")
+	end
+	
+end
+
+function disable_fader(self, url, property)
+	msg.post(".", "disable")
+end
+
+function exit_game(self, url, property)
+	sys.exit(0)
+end

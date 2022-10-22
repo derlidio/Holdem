@@ -1,0 +1,4 @@
+tile_set: "/main/tiles/suit_1.tilesource"
+default_animation: "deal"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

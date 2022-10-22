@@ -1,0 +1,35 @@
+go.property("initial_position", vmath.vector3())
+
+function init(self)
+
+	msg.post("/weapon#weapon", "hide_emitter")
+	
+	self.initial_position = go.get(".", "position")
+
+	go.set(".", "position.y", self.initial_position.y - 16)
+	go.set("#parchment", "tint.w", 0)
+	go.set("#label", "color.w", 0)
+	
+	go.animate("#parchment", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 1)
+	go.animate("#label", "color.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 1)
+	
+	go.animate(".", "position.y", go.PLAYBACK_LOOP_PINGPONG, self.initial_position.y + 32, go.EASING_INOUTSINE, 10)
+
+	disable_gui = true
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		msg.post("/weapon#weapon", "show_emitter")
+		go.animate("#parchment", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0, delete_credits)
+		go.animate("#label", "color.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5)
+	end
+	
+end
+
+function delete_credits(self, url, properties)
+	disable_gui = false
+	go.delete(".", true)
+end

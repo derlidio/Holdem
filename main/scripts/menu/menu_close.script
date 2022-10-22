@@ -1,0 +1,7 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		msg.post("/menu/menu", "switch")
+	end
+
+end

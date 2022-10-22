@@ -1,0 +1,34 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		local file_path = sys.get_save_file("Holdem", "holdem.options.dat")
+
+		local json = '{' ..
+		'"opt_info":' ..  tostring(opt_info) .. ',' ..
+		'"opt_praise_text":'.. tostring(opt_praise_text) .. ',' ..
+		'"opt_praise_voice":' .. tostring(opt_praise_voice) .. ',' ..
+		'"opt_hand_text":' .. tostring(opt_hand_text) .. ',' ..
+		'"opt_hand_voice":' .. tostring(opt_hand_voice) .. ',' ..
+		'"opt_music":' .. tostring(opt_music) .. ',' ..
+		'"opt_sound":' .. tostring(opt_sound) .. ',' ..
+		'"opt_tips":' .. tostring(opt_tips) ..
+		'}'
+					
+		local options = {}
+
+		table.insert(options, json)
+					
+		if not sys.save(file_path, options) then
+			modal_message = "Ooops! Something went wrong. Could not save options. We're sorry for the inconvenience! :("
+			factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		else
+			modal_message = "Options successfully saved!"
+			factory.create("/table#message", nil, nil, nil, vmath.vector3(2,2,2))
+		end
+		
+		msg.post("/options/options", "switch")
+		
+	end
+	
+end

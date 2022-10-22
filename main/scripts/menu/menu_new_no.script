@@ -1,0 +1,15 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		
+		disable_gui = false
+
+		snd_play("/sound_fx#answer")
+		
+		msg.post("/menu/new_msgbox", "disable")
+		msg.post("/menu/new_yes", "disable")
+		msg.post("/menu/new_no", "disable")
+
+	end
+
+end

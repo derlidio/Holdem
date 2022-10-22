@@ -1,0 +1,56 @@
+go.property("score", 0)
+go.property("delay", 0)
+
+function update(self, dt)
+
+	local s = ""
+	local d = 0
+
+	if self.delay > 0 then 
+		self.delay = self.delay - dt
+		if self.delay < 0 then
+			self.delay = 0
+		end
+		return
+	end
+		
+	if self.score ~= score then
+
+		if self.score > score then
+			self.score = self.score - 1
+			d = self.score - score
+		else
+			self.score = self.score + 1
+			d = score - self.score
+		end
+
+		if d <= 5 then
+			self.delay = 0.15
+		elseif d <= 10 then 
+			self.delay = 0.10
+		elseif d <= 15 then
+			self.delay = 0.05
+		end
+		
+		s = string.format("%05d", self.score)
+		
+		for i = 1,5 do
+			sprite.play_flipbook("#" .. string.char( 64 + i), hash(string.sub(s,i,i)))
+		end
+		
+	end
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("update") then
+		self.delay = 0
+		self.score = score		
+		s = string.format("%05d", self.score)
+		for i = 1,5 do
+			sprite.play_flipbook("#" .. string.char( 64 + i), hash(string.sub(s,i,i)))
+		end
+	end
+	
+end
