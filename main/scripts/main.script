@@ -1,0 +1,3495 @@
+--------------------------------------------
+-- Holdem (C) 2008/2020 Derlidio Siqueira --
+--------------------------------------------
+
+-- Last Revision: 2020/12/14
+
+intro = true
+
+start = 0
+level = 0
+round = 0
+score = 0
+
+deck = {}
+deck_pointer = 0
+deck_number = 0
+
+chips = 0
+chips_spent = false
+
+round_delay = 0 -- When set to a value other than zero, will pause the round that time in seconds.
+
+round_dealing = false
+round_evaluating = false
+round_picking = false
+round_sorting = false
+round_animating = false
+round_cleaning = false
+round_finished = true
+round_unstable = 0
+round_attack = false
+round_attacking = false
+
+closing_gaps = false
+
+semaphore_sort = false
+semaphore_gap = false
+semaphore_clean = false
+
+sort_on_land = false
+
+magic_selected = 0
+
+wait_on = false
+play_go = false
+help_on = false
+
+menu_active = false
+options_active = false
+
+auto_save = false
+auto_load = false
+auto_wait = false
+
+table_slots = {}
+hand_slots = {}
+
+table_cleared = false
+cancel_tip = false
+
+combination = 0
+combinations = {}
+combinations_count = 0
+combinations_calc = false
+combinations_done = false
+
+suggestion = 0
+suggestion_delay = 0
+suggestion_points = 0
+
+level_up = true
+level_up_stage = 0
+level_up_delay = 0
+
+hint_playing = false
+hint_old = false
+hint_locked = false
+hint_wildcard = false
+hint_destroy = false
+hint_magic_target = false
+hint_magic_bounce = false
+hint_magic_type = false
+hint_magic_unstable = false
+hint_magic_back = false
+
+poker_hand = ""
+poker_text = ""
+
+fireball_card = 0
+
+joker_active = false
+crack_active = false
+
+opt_info = true
+opt_praise_text = true
+opt_praise_voice = true
+opt_hand_text = true
+opt_hand_voice = true
+opt_music = true
+opt_sound = true
+opt_tips = true
+
+loading_game = false
+
+-- Modal messages / interfaces --
+
+disable_gui = false
+
+modal_message = ""
+
+-- Control for Unstable Magic Slots
+
+magic_slots = {}
+
+-- Reference "CONSTANTS"
+
+TABLE_SLOT = 1
+HAND_SLOT = 2
+MAX_POINTS = 0.14
+LOCKED_CARDS = 10
+
+STRIKE_MAGIC = 1
+STRIKE_SHOCK = 2
+STRIKE_BURST = 3
+
+LEVEL_TWIST_1 =  7 -- Pump engine starts.
+LEVEL_TWIST_2 = 10 -- Locked Cards start to appear.
+LEVEL_TWIST_3 = 15 -- 1 Magic Slot turns unstable. Lock/Unlock magic reveals.
+LEVEL_TWIST_4 = 20 -- 2 Magic Slots turns unstable.
+LEVEL_TWIST_5 = 25 -- 3 Magic Slots turns unstable.
+
+PUMP_DELAY = 1
+PUMP_INCREMENT = 0.15 / 60 -- 15% per minute
+
+MODE_EASY = 1
+MODE_NORMAL = 2
+MODE_HARD = 3
+MODE_EXTREME = 4
+
+game_mode = MODE_NORMAL
+game_over = false
+
+difficulty_id = 0
+
+lf = vmath.vector3(0,0,0)
+lt = vmath.vector3(0,0,0)
+
+ORIGINAL_SCREEN_W = 1280
+ORIGINAL_SCREEN_H = 720
+
+screen_gx = 0 -- Gap in X axis -- Will be > 0 when the engine fits the scene on the X axis
+screen_gy = 0 -- Gap in Y axis -- Will be > 0 when the engine fits the scene on the Y axis
+
+soundtrack = 0
+soundtrack_id = 0
+
+no_input = 0
+
+NO_INPUT_DELAY = 40
+MAX_TIP_DELAY = 30
+
+------------------------------------------------------------------------------------------------------------------------
+
+function init(self)
+	
+	--profiler.enable_ui(true)
+
+	window.set_dim_mode(window.DIMMING_OFF)
+
+	load_options()
+
+	math.randomseed(os.time()) -- Ensures that each time the game is played everything will be different.
+	
+	soundtrack = math.random(0, 7) -- Let's start with a random track :o)
+	
+	music_play()
+
+	label.set_text("/debug#label", "")
+	
+	msg.post(".", "acquire_input_focus") -- this is the only object in the game arena wich will handle mouse/touch events.
+
+	msg.post("@render:", "use_fixed_fit_projection", { near = -2, far = 2 })
+
+	-- Initialize the table slots properties. The first
+	-- slot is the one at middle left. The slots run in
+	-- clockwhise direction:
+
+	table_slots[1] = { ox = -192, oy =    0 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[2] = { ox = -128, oy =   80 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[3] = { ox =    0, oy =  112 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[4] = { ox =  128, oy =   80 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[5] = { ox =  192, oy =    0 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[6] = { ox =  128, oy =  -80 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[7] = { ox =    0, oy = -112 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+	table_slots[8] = { ox = -128, oy =  -80 , rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false }
+
+	-- Initialize the hand slots properties. The first
+	-- slot is the one at left. The slots run in left
+	-- to right direction:
+	
+	hand_slots[1] = { rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false , unstable = false, magic = 0}
+	hand_slots[2] = { rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false , unstable = false, magic = 0}
+	hand_slots[3] = { rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false , unstable = false, magic = 0}
+	hand_slots[4] = { rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false , unstable = false, magic = 0}
+	hand_slots[5] = { rank = 0, suit = 0, used = false , card = 0 , solving = false , skip = false , unstable = false, magic = 0}
+
+	magic_slots[1] = { unstable = false , target = 0} 
+	magic_slots[2] = { unstable = false , target = 0} 
+	magic_slots[3] = { unstable = false , target = 0} 
+	magic_slots[4] = { unstable = false , target = 0} 
+	magic_slots[5] = { unstable = false , target = 0} 
+	magic_slots[6] = { unstable = false , target = 0} 
+	magic_slots[7] = { unstable = false , target = 0} 
+	magic_slots[8] = { unstable = false , target = 0} 
+	magic_slots[9] = { unstable = false , target = 0} 
+	magic_slots[10] = { unstable = false , target = 0}
+
+	msg.post("/fader", "fade_in", { delay = 3 } )
+
+	msg.post("#crack", "disable")
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function start_game()
+
+	------------------------------------------------------------------------------
+	-- If we are not starting at level -1 (wich will up to level 0 right away), --
+	-- then we must take some steps to enable the game features up to that      --
+	-- start level.                                                             --
+	------------------------------------------------------------------------------
+
+	-- The contender flags (at the hud) will be shown only if the start
+	-- level is less than 8 (the last "regular" magic slot) or after the
+	-- lock/unclock card magic is revealed.
+
+	if start > 0 then
+		label.set_text("/hud/level#label", tostring(start + 1))
+		if start < 8 then
+			msg.post("/magic_".. start .."/button#magic", "tease")
+		end
+		-- Disable basic hints:
+		hint_old = true
+		hint_destroy = true
+		hint_wildcard = true
+	end
+
+	if start < 8 or start >= LEVEL_TWIST_3 - 1 then 
+		msg.post("/hud/banner_L", "show")
+		msg.post("/hud/banner_R", "show")
+	end
+
+	-- The pump must be activated at the correct level:
+
+	if start >= LEVEL_TWIST_1 then
+		msg.post("/pump/heart_engine", "activate")
+	end
+
+	if start >= LEVEL_TWIST_2 then
+		hint_locked = true
+	end
+
+	if start >= LEVEL_TWIST_3 - 1 then
+
+		hint_magic_unstable = true
+
+		msg.post("/magic_9/button#magic", "reveal", { animate = true } )
+		msg.post("/magic_10/button#magic", "reveal", { animate = true } )
+
+		joker_active = true
+
+		msg.post("/hud/joker", "show")
+		msg.post("/hud/scepter", "show", { magic_selected = magic_selected } )
+
+		if start >= LEVEL_TWIST_3 then msg.post("/magic_9/button#magic", "tease") end
+		if start >= LEVEL_TWIST_3 + 1 then msg.post("/magic_10/button#magic", "tease") end
+
+	end
+
+	if start + 1 >= LEVEL_TWIST_5 then 
+		round_unstable = 3
+	elseif start + 1 >= LEVEL_TWIST_4 then
+		round_unstable = 2
+	elseif start + 1 >= LEVEL_TWIST_3 then 
+		round_unstable = 1 
+	end
+
+	-- All regular magic up to the start level must be "conquered":
+
+	local conquer = start - 1
+
+	if conquer > 8 then conquer = 8 end
+
+	for i = 1, conquer do
+		msg.post("/magic_".. i .."/button#magic", "conquer", { skip_balloon = true } )
+	end
+
+	-- Conquer the extra magic, if needed:
+
+	if start > LEVEL_TWIST_3 then
+		msg.post("/magic_9/button#magic", "conquer", { skip_balloon = true } )
+	end
+
+	if start > LEVEL_TWIST_3 + 1 then
+		msg.post("/magic_10/button#magic", "conquer", { skip_balloon = true } )
+	end
+
+	-- Adjust the level for starting the game:
+
+	level = start - 1
+
+	-- Populate the deck and shuffle the cards:
+
+	create_deck()
+
+	-- Create the chips according to the current game mode:
+	
+	create_chips(5 - game_mode)
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function on_input(self, action_id, action)
+
+	if loading_game then return end
+		
+	-- If any round routine is taking place, then block all input
+	
+	local id = 0
+
+	if action_id == hash("touch") and action.pressed then
+
+		if round_animating or round_attacking or round_finished or round_dealing or round_picking or round_sorting or round_evaluating or round_cleaning then
+			spawn_crack(self, action_id, action)
+			return
+		end
+
+		if help_on then
+			snd_play("/sound_fx#answer")
+		end
+		
+		no_input = 0
+		
+		-- Trow a ray_cast from the center of the screen to the point of touch. If it hits
+		-- a collision object on the go, but not on coming back (the reverse path), then
+		-- the touch happened 'inside' the collision object area. Defold doesn't count hits
+		-- when the start point of a ray_cast is inside a collision object. We use that
+		-- in our favor to isolate a single interface "button" by its collision group.
+
+		----------------------------------------
+		-- Test for a touch on a modal button --
+		----------------------------------------
+
+		id = test_collision(action, "modal")
+		
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+		-----------------------------------------
+		-- Test for a touch on a msgbox button --
+		-----------------------------------------
+
+		id = test_collision(action, "msg")
+
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+
+		if disable_gui then -- If a msgbox element is active, dimiss input on gui and arena items.
+			factory.create("/table#blocked")
+			return 
+		end 
+
+		--------------------------------------
+		-- Test for a touch on a gui button --
+		--------------------------------------
+
+		id = test_collision(action, "gui_btn")
+
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+		
+		--------------------------------------
+		-- Test for a touch on a hud button --
+		--------------------------------------
+						
+		id = test_collision(action, "hud")
+
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+
+		if menu_active or options_active then return end -- Dimiss input on arena items.
+
+		------------------------------------------------------------------------------
+		-- ** IF GAME OVER STATE, NO NEED TO PROCEED UNTIL A NEW GAME IS STARTED ** --
+		------------------------------------------------------------------------------
+						
+		if game_over then return end
+			
+		--------------------------------------
+		-- Test for a touch on a magic slot --
+		--------------------------------------
+				
+		id = test_collision(action, "magic")
+		
+		if id ~= 0 then
+			msg.post(id, "select")
+			return
+		end
+		
+		--------------------------------------
+		-- Test for a touch on a table card --
+		--------------------------------------
+
+		id = test_collision(action,"table")
+
+		if id ~= 0 then
+			msg.post(id, "pick")
+			cancel_tip = true -- The player is picking a card from the table, so lets cancel tip showing.
+			return
+		end
+
+		-------------------------------------
+		-- Test for a touch on a hand card --
+		-------------------------------------
+
+		id = test_collision(action, "hand")
+
+		if id ~= 0 then
+			msg.post(id, "pick")
+			return
+		end
+
+		--------------------------------
+		-- Test for a touch on a chip --
+		--------------------------------
+
+		id = test_collision(action, "chip")
+
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+
+		--------------------------------
+		-- Test for a touch on a slot --
+		--------------------------------
+
+		id = test_collision(action, "slot")
+
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+		
+		------------------------------------------
+		-- Test for a touch on the table itself --
+		------------------------------------------
+
+		id = test_collision(action, "arena")
+
+		if id ~= 0 then
+			msg.post(id, "click")
+			return
+		end
+
+		------------------------------
+		-- Nothing has been clicked --
+		------------------------------
+				
+		if help_on then
+			msg.post("/help", "message", { text = "Humm... There's nothing of interest there." } )
+		end
+		
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function update(self, dt)
+
+	-- collect_debug_data()
+
+	if intro or loading_game then return end
+
+	if round_delay > 0 then
+		round_delay = round_delay - dt
+		if round_delay < 0 then
+			round_animating = false
+			round_delay = 0
+			if poker_hand ~= "" then
+				if opt_hand_voice then snd_play("voice_fx#" .. poker_hand) end
+				poker_hand = ""
+			end
+			if poker_text ~= "" then
+				if poker_text ~= "" then
+					if opt_hand_text then 
+						msg.post("/scroll", "show", { text = poker_text } )
+						if not level_up then
+							round_delay = 2
+							round_animating = true
+						end
+					end
+					poker_text = ""
+				end
+			end
+		end
+		return
+	end
+
+	if play_go then
+		if	not wait_on and
+			not round_animating and
+			not round_attacking and
+			not round_finished and
+			not round_dealing and
+			not round_picking and
+			not round_sorting and
+			not round_evaluating and
+			not round_cleaning then
+			play_go = false
+			msg.post("/go_now", "show")
+		end
+	end
+
+	no_input = no_input + dt
+
+	if no_input > NO_INPUT_DELAY then flip_cards() end
+	
+	if level_up then
+		if level_up_delay > 0 then
+			level_up_delay = level_up_delay - dt
+		else
+			level_up_delay = 0
+			level_up_stage = level_up_stage + 1
+			next_level()
+		end
+		return
+	end
+	
+	if round_finished and not closing_gaps then -- deal a new round of cards
+
+		while round_unstable > 0 do
+			set_unstable() 
+		end
+	
+		if not round_dealing then
+
+			if not can_deal() then return end
+
+			local table_full = true
+			
+			for i = 1, 8 do
+				if not table_slots[i].used then
+					deal_to_table(i)
+					table_full = false
+					break
+				end
+			end
+
+			if table_full then
+
+				local hand_full = true
+				
+				for i = 1, 2 do
+					if not hand_slots[i].used then
+						deal_to_hand(i)
+						hand_full = false
+						break
+					end
+				end
+				
+				if hand_full then 
+					if level + 1 >= LEVEL_TWIST_1 then
+						msg.post("/pump/heart_engine", "start") -- If we are at LEVEL_TWIST_1+, turn ON the pump engine
+					end
+					if level < 8 then 
+						round_animating = true
+						round_delay = 0.5
+					end
+					round_attack = false
+					round_sorting = true
+					round_finished = false
+				end
+						
+			end
+			
+		end
+
+		return
+		
+	end
+
+	if closing_gaps == true then
+		if semaphore_gap == false then
+			semaphore_gap = true
+			close_gaps()
+		end
+		return
+	end
+		
+	if round_sorting == true then
+		if semaphore_sort == false then
+			semaphore_sort = true
+			sort_hand()
+		end
+		return
+	end
+
+	if not round_attack then
+		contender_attack()
+		return
+	end
+	
+	if round_cleaning == true then
+		if semaphore_clean == false then
+			semaphore_clean = true
+			clear_round()
+		end
+		return
+	end
+
+	if opt_tips and not round_attacking then
+		if combinations_calc then
+			if combinations_done then -- All combinations have been tested!
+				if suggestion ~= 0 then
+					if suggestion_delay > 0 then
+						suggestion_delay = suggestion_delay - dt
+						if suggestion_delay < 0 then
+							suggestion_delay = 0
+							suggest_play()
+						end
+					end
+				end
+			else
+				if not cancel_tip then
+					test_combination()
+				end
+			end
+		else
+			initialize_combinations()
+		end
+	end
+
+	if game_over then
+		
+		if not table_cleared and not round_attacking then
+
+			table_cleared = true
+			cancel_tip = true
+
+			hint_old = true
+			hint_locked = true
+			hint_wildcard = true
+			hint_destroy = true
+			hint_magic_target = true
+			hint_magic_bounce = true
+			hint_magic_type = true
+			hint_magic_unstable = true
+			hint_magic_back = true
+			
+			for i = 1, 8 do
+				if table_slots[i].used then
+					msg.post(table_slots[i].card, "old")
+				end
+			end
+			
+			for i = 1, 5 do
+				if hand_slots[i].used then
+					msg.post(hand_slots[i].card, "old")
+				end
+			end
+
+			file_path = sys.get_save_file("Holdem", "holdem.auto.dat")
+						
+			os.remove(file_path) -- removes any auto-save for this game session
+		end
+	else
+		if not auto_load then
+			if not auto_wait then
+				auto_wait = true
+				msg.post("/auto_load", "show")
+			end
+		else
+			if not auto_save and not round_attacking then
+				auto_save = true
+				save_game(false) -- Passing 'false' will tell the function this is an app action (auto-save), not started by user.
+			end
+		end
+	end
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function set_unstable()
+
+	round_unstable = round_unstable - 1
+
+	local c = ""
+
+	local magic = 0
+	local slot = 0
+
+	for i = 1, 8 do
+		if magic_slots[i].unstable == false then
+			magic = i
+			if math.random(0, 100) > 50 then break end
+		end
+	end
+	
+	if magic == 0 then return end -- We failed (miserably) to find a stable magic to play with! :/ Wont happen! :)
+
+	for i = 3, 5 do
+		if hand_slots[i].unstable == false then
+			slot = i
+			if math.random(0, 100) > 50 then break end
+		end
+	end
+			
+	if slot == 0 then return end -- We failed (miserably) to find a stable slot to play with! :/ Also wont happen! :)
+
+	magic_slots[magic].unstable = true
+	magic_slots[magic].target = slot
+		
+	hand_slots[slot].unstable = true -- The target
+	hand_slots[slot].magic = magic -- The magic power
+
+	msg.post("/magic_" .. magic .. "/button#magic", "unstable", {state = true, target = slot} ) -- The magic
+
+	if hand_slots[slot].used then -- If the unstable target is already filled, trigger the magic power.
+		round_delay = 1
+		msg.post(hand_slots[slot].card, "position") -- This will triger the magic apply on the slot.
+	end
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function on_message(self, message_id, message, sender)
+
+	local card 
+	local suit
+	local rank
+	local slot
+	local type
+
+	----------------------------------
+	-- new card ----------------------
+	----------------------------------
+	
+	if message_id == hash("deal") then
+
+		sort_on_land = true
+		
+		local draw = false
+
+		for i = 1, 8 do
+			if table_slots[i].used == false then
+				deal_to_table(i)
+				draw = true
+				break
+			end
+		end
+
+		if draw == false then
+			for i = 1, 5 do
+				if hand_slots[i].used == false then
+					deal_to_hand(i)
+					draw = true
+					break
+				end
+			end
+		end
+		return
+	end
+
+	----------------------------------
+	-- change suit -------------------
+	----------------------------------
+	
+	if message_id == hash("suit") then
+
+		if message.type == HAND_SLOT then
+			rank = hand_slots[message.slot].rank
+			suit = hand_slots[message.slot].suit
+		else
+			rank = table_slots[message.slot].rank
+			suit = table_slots[message.slot].suit
+		end
+
+		if suit == 1 then suit = 2 elseif suit == 2 then suit = 1 end
+		if suit == 3 then suit = 4 elseif suit == 4 then suit = 3 end
+		
+		ask_transformation(message.type, message.slot, rank, suit)
+		
+		return
+	end
+
+	----------------------------------
+	-- clone card --------------------
+	----------------------------------
+	
+	if message_id == hash("clone") then
+
+		if message.type == HAND_SLOT then
+			card = hand_slots[message.slot].card
+			rank = hand_slots[message.slot].rank
+			suit = hand_slots[message.slot].suit
+		else
+			card = table_slots[message.slot].card
+			rank = table_slots[message.slot].rank
+			suit = table_slots[message.slot].suit
+		end
+
+		local s = ""
+		local c = ""
+		
+		local f = go.get(card, "position")
+		
+		for i = 1, 8 do
+			if table_slots[i].used == false then
+				table_slots[i].used = true
+				table_slots[i].rank = rank
+				table_slots[i].suit = suit
+				type = TABLE_SLOT
+				slot = i
+				s = "/table#table"
+				break
+			end
+		end
+
+		if s == "" then
+			for i = 1, 5 do
+				if hand_slots[i].used == false then
+					hand_slots[i].used = true
+					hand_slots[i].rank = rank
+					hand_slots[i].suit = suit
+					type = HAND_SLOT
+					slot = i
+					s = "/slot_" .. i .. "#slot"
+					break
+				end
+			end
+		end
+
+		if s ~= "" then -- If there is space for one more card...
+		
+			local t = go.get_position(s)
+
+			local properties = {
+				  deck = deck_number, 
+				  suit = suit, 
+				  rank = rank, 
+				  ghost = true,
+				  slot_type = type,
+				  slot_number = slot
+			}
+			
+			card = factory.create("#card_" .. suit, f, nil , properties)
+
+			if type == HAND_SLOT then
+				hand_slots[slot].card = card
+			else
+				table_slots[slot].card = card
+				t.x = t.x + table_slots[slot].ox
+				t.y = t.y + table_slots[slot].oy
+			end
+
+			sort_on_land = true
+			
+			go.animate(card, "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, landed)
+			go.animate(card, "euler.z" , go.PLAYBACK_ONCE_FORWARD, -360, go.EASING_LINEAR, 0.5)
+		end
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function create_deck()
+	
+	-- On deck building: aces will be treated as rank 14 (high card).
+
+	deck = {} -- global
+
+	local card = 1
+	local locks = 0
+
+	for s = 1, 4 do -- for each of the four suits
+		for r = 2, 14 do -- for each of the 13 ranks
+			deck[card] = { suit = s, rank = r , locked = false}
+			card = card + 1
+		end
+	end
+
+	deck[0] = {suit = 0, rank = 0, locked = false} -- This will be the wildcard.
+
+	deck_pointer = 0 -- whenever a deck is recreated, it's pointer must be reset.
+
+	-- On LEVEL_TWIST_2 and above we start to have some "locked" cards:
+
+	if level + 1 >= LEVEL_TWIST_2 then -- Locked cards start to appear at LEVEL_TWIST_2
+		
+		card = 0
+
+		while locks < LOCKED_CARDS do
+			
+			card = math.random(0,52)
+
+			if deck[card].locked == false then
+				deck[card].locked = true
+				locks = locks + 1
+			end
+
+		end	
+		
+	end
+
+	shuffle_deck()
+
+	deck_number = deck_number + 1
+
+	--[[ Game Testing Code -- ** Remove **
+	if deck_number == 1 then deck_pointer = 40 end 
+	--]]
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function create_chips(quantity)
+
+	local appearance_delay = chips + 1
+	
+	while chips < quantity do
+		chips = chips + 1
+		factory.create("/table#chip", nil, nil, { count = chips, delay = 0.5 * (chips - appearance_delay) } )
+	end
+
+	chips = quantity
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function shuffle_deck()
+
+	local a = 0
+	local b = 0
+	local s = 0 -- the start point of deck shuffling
+
+	if deck_number == 0 then 
+		-- If this is the first deck, then we'll treat the wildcard in a special way.
+		-- The wildcard is at deck_pointer 0 (zero). In this case, it'll not be shuffled.
+		-- We'll move it near the end of the deck later, after shuffling the rest of the cards.
+		-- This is to give a little "surprise" to the player at the end of the first deck.
+		s = 1 
+	end
+	
+	for i = 1, 1000 do -- we'll perform 1000 swaps
+		a = s
+		b = s
+		while a == b do
+			a = math.random(s,52)
+			b = math.random(s,52)
+		end
+		deck[a], deck[b] = deck[b], deck[a] -- swap the cards on positions [a] and [b]
+	end
+
+	if deck_number == 0 then
+		deck[0], deck[40] = deck[40], deck[0] -- Move the wildcard near the end of the deck.
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function can_deal()
+
+	for i = 1, 5 do
+		if hand_slots[i].used == true and hand_slots[i].card == 0 then
+			return false
+		end
+	end
+
+	for i = 1, 8 do
+		if table_slots[i].used == true and table_slots[i].card == 0 then
+			return false
+		end
+	end
+
+	return true
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function deal_to_table(slot)
+
+	round_dealing = true
+	
+	if deck_pointer > 52 then
+		turn_old()
+		snd_play("voice_fx#new_deck")
+		msg.post("/deck", "switch")
+		create_deck() 
+	end
+
+	table_slots[slot].used = true
+	
+	local f = vmath.vector3() -- from point
+	local t = vmath.vector3() -- to point
+	local s = vmath.vector3() -- scale
+
+	f = go.get_position("/dealer#dealer")
+	t = go.get_position("#table")
+
+	local properties = { 
+		  deck = deck_number,
+		  suit = deck[deck_pointer].suit, 
+		  rank = deck[deck_pointer].rank,
+		  locked = deck[deck_pointer].locked, 
+		  slot_type = TABLE_SLOT,
+		  slot_number = slot
+	}
+	
+	local card = factory.create("#card_" .. deck[deck_pointer].suit, f, nil , properties)
+
+	t.x = t.x + table_slots[slot].ox
+	t.y = t.y + table_slots[slot].oy
+
+	s.x = 2; s.y = 2; s.z = 1;
+
+	go.set(card, "scale", s)
+
+	s.x = 1; s.y = 1; s.z = 1;
+	
+	go.animate(card, "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, landed)
+	go.animate(card, "scale"   , go.PLAYBACK_ONCE_FORWARD, s, go.EASING_LINEAR, 0.5)
+	go.animate(card, "euler.z" , go.PLAYBACK_ONCE_FORWARD, -360, go.EASING_LINEAR, 0.5)
+
+	snd_play("/card_fx#draw")
+
+	table_slots[slot].card = card
+	table_slots[slot].rank = deck[deck_pointer].rank
+	table_slots[slot].suit = deck[deck_pointer].suit
+	
+	deck_pointer = deck_pointer + 1
+
+	label.set_text("/deck#cards", string.format("%02d", 53 - deck_pointer))
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function deal_to_hand(slot)
+
+	round_dealing = true
+	
+	if deck_pointer > 52 then 
+		turn_old()
+		snd_play("voice_fx#new_deck")
+		msg.post("/deck", "switch")
+		create_deck() 
+	end
+
+	hand_slots[slot].used = true
+	
+	local f = vmath.vector3() -- from point
+	local t = vmath.vector3() -- to point
+	local s = vmath.vector3() -- scale
+
+	f = go.get_position("/dealer#dealer")
+	t = go.get_position("/slot_" .. slot .. "#slot")
+
+	local properties = { 
+		  deck = deck_number,
+		  suit = deck[deck_pointer].suit, 
+		  rank = deck[deck_pointer].rank, 
+		  locked = deck[deck_pointer].locked,
+		  slot_type = HAND_SLOT,
+		  slot_number = slot
+	}
+	
+	local card = factory.create("#card_" .. deck[deck_pointer].suit, f, nil , properties )
+	
+	s.x = 2; s.y = 2; s.z = 1;
+
+	go.set(card, "scale", s)
+
+	s.x = 1; s.y = 1; s.z = 1;
+
+	go.animate(card, "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, landed)
+	go.animate(card, "scale"   , go.PLAYBACK_ONCE_FORWARD, s, go.EASING_LINEAR, 0.5)
+	go.animate(card, "euler.z" , go.PLAYBACK_ONCE_FORWARD, -360, go.EASING_LINEAR, 0.5)
+
+	hand_slots[slot].card = card
+	hand_slots[slot].rank = deck[deck_pointer].rank
+	hand_slots[slot].suit = deck[deck_pointer].suit
+
+	snd_play("/card_fx#draw")
+	
+	deck_pointer = deck_pointer + 1
+	
+	label.set_text("/deck#cards", string.format("%02d", 53 - deck_pointer))
+	
+end
+
+function landed(self, url, property)
+
+	msg.post(url, "position")
+	
+	if sort_on_land == true then
+		sort_on_land = false
+		round_sorting = true
+	end
+
+	snd_play("/card_fx#place")
+	
+	round_dealing = false
+		
+end
+
+function sort_hand()
+
+	-- Proceed only if not already solving something.
+	-- Don't forget to release semaphore_sort!
+
+	for i = 1, 5 do
+		if hand_slots[i].solving == true then 
+			semaphore_sort = false
+			return 
+		end
+	end
+	
+	-- Check the need to swap hand slots cards:
+	
+	local a
+	local b
+
+	local sorted = true
+	local last = 0
+	
+	for i = 1, 4 do
+
+		if hand_slots[i].used == true and hand_slots[i+1].used == true then
+
+			last = i + 1
+			
+			a = msg.url(nil, hand_slots[i].card, "card")
+			b = msg.url(nil, hand_slots[i+1].card, "card")
+
+			if go.get(a, "rank") > go.get(b, "rank") then
+
+				hand_slots[ i ].solving = true
+				hand_slots[i+1].solving = true
+
+				hand_slots[i], hand_slots[i+1] = hand_slots[i+1], hand_slots[i] -- swap slots contents
+				
+				msg.post(a, "slot", { slot = i + 1 } )
+				msg.post(b, "slot", { slot = i } )
+
+				sorted = false
+
+				break
+				
+			end
+		else
+			break
+		end
+	end
+
+	if sorted then 
+		round_sorting = false 
+		if last == 5 then evaluate_round() end
+	end
+
+	semaphore_sort = false
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function clear_round()
+	
+	-- Proceed only if not already solving something.
+	-- Don't forget to release semaphore_sort!
+
+	for i = 1, 5 do
+		if hand_slots[i].solving == true then 
+			semaphore_clean = false
+			return 
+		end
+	end
+
+	for i = 1, 8 do
+		if table_slots[i].solving == true then 
+			semaphore_clean = false
+			return 
+		end
+	end
+	
+	-- If, at the end of the round, there are cards on hand slots 3, 4 or 5, destroy them:
+
+	local c -- This will be set to a URL pointing to a card object
+	local old = {}
+	
+	for i = 5, 3, -1 do
+		if hand_slots[i].used and not hand_slots[i].skip then
+			hand_slots[i].solving = true
+			magic_selected = 1 -- kill the card with penalties!
+			msg.post(hand_slots[i].card, "pick")
+			semaphore_clean = false
+			return
+		end
+	end
+
+	-- At the end of the round, self-destroying cards must die...
+
+	for i = 1, 8 do
+		if table_slots[i].used and not table_slots[i].skip then
+			c = msg.url(nil, table_slots[i].card, "card")
+			if go.get(c, "self_destroy") == true then
+				table_slots[i].solving = true
+				magic_selected = 1 -- kill the card with penalties!
+				msg.post(table_slots[i].card, "pick")
+				semaphore_clean = false
+				return
+			end
+			if go.get(c, "old") == true then table.insert(old, c) end
+		end
+	end
+
+	for i = 1, 5 do
+		if hand_slots[i].used and not hand_slots[i].skip then
+			c = msg.url(nil, hand_slots[i].card, "card")
+			if go.get(c, "self_destroy") == true then
+				hand_slots[i].solving = true
+				magic_selected = 1 -- kill the card with penalties!
+				msg.post(c, "pick")
+				semaphore_clean = false
+				return
+			end
+			if go.get(c, "old") == true then table.insert(old, c) end
+		end
+	end
+
+	-- If there is an ace which was evaluated to 1, then turn it into 14 again...
+
+	for i = 1, 5 do
+		if hand_slots[i].used == true then
+			if hand_slots[i].rank == 1 then
+				msg.post(hand_slots[i].card,"ace")
+				semaphore_clean = false
+				return
+			end
+		end
+	end
+
+	for i = 1, 8 do
+		if table_slots[i].used == true then 
+			if table_slots[i].rank == 1 then
+				msg.post(table_slots[i].card,"ace")
+				semaphore_clean = false
+				return 
+			end
+		end
+	end
+
+	-- If there are any "old" card, choose one to self-destruct at the end of the next round
+	
+	local max = table.maxn(old)
+	
+	if  max > 0 then
+		msg.post(old[math.random(1,max)], "self_destroy")
+	end
+
+	-- If there are any "ghost" cards, then they must turn "old"
+
+	for i = 1, 8 do
+
+		table_slots[i].skip = false -- clear skipping flag
+		
+		if table_slots[i].used then
+			c = msg.url(nil, table_slots[i].card, "card")
+			if go.get(c, "ghost") == true then
+				msg.post(c,"old")
+			end
+		end
+		
+	end
+
+	for i = 1, 5 do
+
+		hand_slots[i].skip = false
+		hand_slots[i].unstable = false 
+		hand_slots[i].magic = 0
+
+		if hand_slots[i].used then
+			c = msg.url(nil, hand_slots[i].card, "card")
+			if go.get(c, "ghost") == true then
+				msg.post(c,"old") 
+			end
+		end
+		
+	end
+
+	-- If we are at LEVEL_TWIST_3+, turn ON the flag for choosing magics to be unstable and a hand slots to be targets:
+
+	for i = 1, 8 do
+		magic_slots[i].unstable = false
+		magic_slots[i].target = 0
+	end
+
+	if level + 1 >= LEVEL_TWIST_5 then 
+		round_unstable = 3
+	elseif level + 1 >= LEVEL_TWIST_4 then
+		round_unstable = 2
+	elseif level + 1 >= LEVEL_TWIST_3 then 
+		round_unstable = 1 
+	end
+
+	if round_unstable > 0 then
+
+		if not joker_active then
+
+			joker_active = true
+			
+			msg.post("/hud/banner_L", "show")
+			msg.post("/hud/banner_R", "show")
+			msg.post("/hud/joker", "show")
+			msg.post("/hud/scepter", "show", { magic_selected = magic_selected} )
+			
+		end
+		
+	end
+
+	-- Set the flags so the game continutes...
+	
+	closing_gaps = true
+	round_cleaning = false
+	round_finished = true
+	round = round + 1
+
+	chips_spent = false
+	combinations_calc = false
+	semaphore_clean = false
+	
+	auto_save = false -- ** Review **
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function turn_old()
+
+	-- If the deck_number has changed, then turn "old" the cards of the previous deck
+
+	for i = 1, 8 do
+		if table_slots[i].used then
+			msg.post(table_slots[i].card,"old")
+		end
+	end
+
+	for i = 1, 5 do
+		if hand_slots[i].used then
+			msg.post(hand_slots[i].card,"old")
+		end
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function evaluate_round()
+
+	round_evaluating = true
+	
+	-- Special case: 2345A
+
+	if hand_slots[1].rank == 2 and hand_slots[2].rank == 3 and hand_slots[3].rank == 4 and hand_slots[4].rank == 5 and hand_slots[5].rank == 14 then
+		msg.post(hand_slots[5].card, "ace") -- This will set hand_sort to true
+		round_evaluating = false
+		return
+	end
+
+	-- If there is any wildcard on player's hand, then we need to resolve them first.
+		
+	if not resolve_wildcards() then
+		round_sorting = true
+		return
+	end
+
+	--[[ Debug Code
+	
+	local hand = ""
+
+	for i = 1, 5 do
+		hand = hand .. string.sub("0123456789XJQKA", hand_slots[i].rank +1, hand_slots[i].rank + 1)
+		hand = hand .. string.sub("0DHCS", hand_slots[i].suit + 1, hand_slots[i].suit + 1)
+		hand = hand .. " "
+	end
+	
+	print(hand)	
+	
+	--]]
+
+	-- Some local variables to facilitate the job...
+
+	local one_pair = false
+	local two_pair = false
+	local three_kind = false
+	local straight = false
+	local flush = false
+	local full_house = false
+	local four_kind = false
+	local five_kind = false
+
+	local ranks = ""
+	local suits = ""
+	local sublime = "....." -- Starts supposing all cards will sublime.
+
+	-- Create a string for the ranks and another for the suits. This will enable us to make some quick checks.
+		
+	for i = 1, 5 do
+		ranks = ranks .. string.sub("0123456789XJQKA", hand_slots[i].rank + 1, hand_slots[i].rank + 1)
+		suits = suits .. string.sub("0DHCS", hand_slots[i].suit + 1, hand_slots[i].suit + 1)
+	end
+
+	-- When cards are used, they "sublime". Check for the cases where all 5 cards will do that.
+
+	if string.find("123456789XJQKA", ranks) then straight = true end
+	if suits == "DDDDD" or suits == "HHHHH" or suits == "CCCCC" or suits == "SSSSS" then flush = true end
+	if ranks == string.rep(string.sub(ranks,1,1),5) then five_kind = true end
+	
+	if not five_kind then
+
+		if ranks == string.rep(string.sub(ranks,1,1), 3) .. string.rep(string.sub(ranks,5,5), 2) then full_house = true end
+		if ranks == string.rep(string.sub(ranks,1,1), 2) .. string.rep(string.sub(ranks,5,5), 3) then full_house = true end
+		
+		if ranks == string.rep(string.sub(ranks,1,1), 4) .. string.sub(ranks,5,5) then 
+			four_kind = true
+			sublime = "....X"
+		end
+			
+		if ranks == string.sub(ranks,1,1) .. string.rep(string.sub(ranks,5,5), 4) then
+			four_kind = true
+			sublime = "X...." 
+		end
+		
+	end
+	
+	-- If the highest hands were discarded, then test for "three of a kind"
+	
+	if not straight and not flush and not five_kind and not full_house and not four_kind then
+
+		if string.rep(string.sub(ranks,1,1), 3) == string.sub(ranks,1,3) then
+			three_kind = true
+			sublime = "...XX"
+		end		
+		
+		if string.rep(string.sub(ranks,5,5), 3) == string.sub(ranks,3,5) then
+			three_kind = true
+			sublime = "XX..."
+		end
+
+		if string.rep(string.sub(ranks,2,2), 3) == string.sub(ranks,2,4) then
+			three_kind = true
+			sublime = "X...X"
+		end
+		
+	end
+
+	-- If none of the above whas found, then test for two pair
+
+	if not straight and not flush and not five_kind and not full_house and not four_kind and not three_kind then
+
+		if string.rep(string.sub(ranks, 1,1), 2) .. string.rep(string.sub(ranks, 3,3), 2) == string.sub(ranks,1,4) then -- AABBX
+			two_pair = true
+			sublime = "....X"
+		end
+		
+		if string.rep(string.sub(ranks, 2,2), 2) .. string.rep(string.sub(ranks, 4,4), 2) == string.sub(ranks,2,5) then -- XAABB
+			two_pair = true
+			sublime = "X...."
+		end
+		
+		if string.rep(string.sub(ranks, 1,1), 2) .. string.rep(string.sub(ranks, 4,4), 2) == string.sub(ranks,1,2) .. string.sub(ranks,4,5) then -- AAXBB
+			two_pair = true
+			sublime = "..X.."
+		end
+
+	end
+
+	-- If none of the above was found, then test for one pair
+	
+	if not straight and not flush and not five_kind and not full_house and not four_kind and not three_kind and not two_pair then
+
+		if string.rep(string.sub(ranks, 1,1), 2) == string.sub(ranks,1,2) then
+			one_pair = true
+			sublime = "..XXX"
+		end
+
+		if string.rep(string.sub(ranks, 2,2), 2) == string.sub(ranks,2,3) then
+			one_pair = true
+			sublime = "X..XX"
+		end
+
+		if string.rep(string.sub(ranks, 3,3), 2) == string.sub(ranks,3,4) then
+			one_pair = true
+			sublime = "XX..X"
+		end
+		
+		if string.rep(string.sub(ranks, 4,4), 2) == string.sub(ranks,4,5) then
+			one_pair = true
+			sublime = "XXX.."
+		end
+
+		if not one_pair then
+			sublime = "XXXX." -- Only the high card! :/ Bad hand!
+		end
+			
+	end
+	
+	-- Now lets sublime the used cards and reposition the others...
+			
+	local c = ""
+	local bonus = 0
+
+	for i = 1, 5 do
+
+		if string.sub(sublime,i,i) == "." then
+
+			hand_slots[i].solving = true
+						
+			msg.post(hand_slots[i].card, "sublime")
+
+			score = score + hand_slots[i].rank
+			bonus = bonus + hand_slots[i].rank
+			
+		end
+		
+	end
+	
+	--[[ -- Game Testing Code -- ** Remove! **
+	if deck_pointer <= 52 then 
+		deck[deck_pointer].rank = 0
+		deck[deck_pointer].suit = 0
+	end
+	--]]
+
+	-- Now let's give the points. Player life and enemy life are in range of 0 to 1 (float).
+
+	local pts = 0
+	local praise = ""
+	local text = ""
+	
+	if straight and flush and string.sub(ranks,5,5) == "A" then
+		
+		pts = 0.14 -- royal straight flush
+		poker_hand = "royal_flush"
+		praise = "professional"
+		poker_text = "Royal Flush"
+		
+	elseif straight and flush then
+		
+		pts = 0.13 -- straight flush
+		poker_hand = "straight_flush"
+		praise = "awesome"
+		poker_text = "Straight Flush"
+		
+	elseif five_kind then
+
+		pts = 0.12
+		poker_hand = "five_kind"
+		praise = "incredible"
+		poker_text = "Five of a Kind"
+		
+	elseif four_kind then
+		
+		pts = 0.11
+		poker_hand = "four_kind"
+		praise = "excellent"
+		poker_text = "Four of a Kind"
+		
+	elseif full_house then
+
+		pts = 0.10
+		poker_hand = "full_house"
+		praise = "outstanding"
+		poker_text = "Full House"
+		
+	elseif flush then
+
+		pts = 0.09
+		poker_hand = "flush"
+		praise = "clever"
+		poker_text = "Flush"
+		
+	elseif straight then
+
+		pts = 0.08
+		poker_hand = "straight"
+		praise = "clever"
+		poker_text = "Straight"
+		
+	elseif three_kind then
+
+		pts = 0.07
+		poker_hand = "three_kind"
+		poker_text = "Three of a Kind"
+		
+	elseif two_pair then
+
+		pts = 0.06
+		poker_hand = "two_pair"
+		poker_text = "Two Pair"
+		
+	elseif one_pair then
+
+		pts = 0.05
+		if game_mode > MODE_NORMAL then 
+			bonus = 0 -- No Bonus for One Pair on high difficult game modes
+		end
+		poker_hand = "one_pair"
+		poker_text = "One Pair"
+		
+	else
+
+		pts = 0.01 -- Nothing! (High Card)
+		if game_mode > MODE_EASY then
+			bonus = 0  -- No Bonus for High Card on high difficult game modes
+		end
+		
+	end
+
+	if game_mode ==  MODE_EASY then
+		bonus = bonus / 100
+	elseif game_mode == MODE_NORMAL then
+		bonus = math.ceil(bonus / 4) / 100
+	elseif game_mode == MODE_HARD then
+		bonus = math.ceil(bonus / 6) / 100
+	else
+		bonus = 0 -- MODE_EXTREME
+	end
+
+	if bonus > 0 then
+		label.set_text("/scroll#points_text",   tostring(pts * 100) .. "\n" .. "+" .. tostring(bonus * 100) .. " Bonus" )
+		label.set_text("/scroll#points_shadow", tostring(pts * 100) .. "\n" .. "+" .. tostring(bonus * 100) .. " Bonus" )
+	else
+		label.set_text("/scroll#points_text",   tostring(pts * 100))
+		label.set_text("/scroll#points_shadow", tostring(pts * 100))
+	end
+	
+	pts = pts + bonus
+		
+	round_animating = true -- This will avoid input during the delay (set below).
+
+	if praise ~= "" then
+		local praise_text = string.upper(string.sub(praise,1,1)) .. string.sub(praise, 2)
+		if opt_praise_text then msg.post("/banner","show", { text = praise_text } ) end
+		if opt_praise_voice then snd_play("voice_fx#" .. praise) end
+		round_delay = 1.50
+	else
+		round_delay = 0.25
+	end
+
+	msg.post("/hud/life_player", "sum", { points = pts } )
+	msg.post("/hud/life_enemy",  "hit", { points = pts } )
+
+	msg.post("/chest", "spin")
+	
+	round_evaluating = false
+	closing_gaps = true
+	round_cleaning = true
+
+	msg.post("/last_hand", "update", { suits = suits, ranks = ranks, points = pts * 100 } )
+
+	enable_magic()
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function resolve_wildcards()
+
+	local w = 0 -- will be set to the number of wildcards on the player's hand
+
+	local same_suit = true
+	local prev_suit = 0
+	
+	for i = 1, 5 do
+		
+		if hand_slots[i].rank == 0 then w = w + 1 end
+		
+		if hand_slots[i].suit ~= 0 then
+			if prev_suit == 0 then
+				prev_suit = hand_slots[i].suit
+			else
+				if hand_slots[i].suit ~= prev_suit then 
+					same_suit = false
+				end
+			end
+		end
+		
+	end
+
+	if w == 0 then return true end -- No wild cards!
+
+	----------------------------------------------
+	-- We have at least one wildcard to resolve --
+	----------------------------------------------
+	
+	--[[ Debug Code
+	
+	local hand = ""
+
+	for i = 1, 5 do
+		hand = hand .. string.sub("0123456789XJQKA", hand_slots[i].rank +1, hand_slots[i].rank + 1)
+		hand = hand .. string.sub("0DHCS", hand_slots[i].suit + 1, hand_slots[i].suit + 1)
+		hand = hand .. " "
+	end
+
+	print(hand)
+
+	--]]
+
+	------------------
+	-- Special Case --
+	------------------
+
+	-- If the user has something like "2345A" then we mUst make it "A2345" (consider A to be 1 instead of 14)
+
+	local ranks = ""
+
+	for i = 1, 5 do
+		ranks = ranks .. string.sub("0123456789XJQKA", hand_slots[i].rank +1, hand_slots[i].rank + 1)
+	end
+	
+	if string.find("0345A 0245A 0235A 0234A 0023A 0024A 0025A 0034A 0035A 0045A", ranks) then
+		msg.post(hand_slots[5].card, "ace")
+		return
+	end
+		
+	-----------------
+	-- 5 wildcards --
+	-----------------
+
+	if w == 5 then 
+		-- We have 5 wildcards. Transform the 5th one to an Ace and leve.
+		-- This will cascade further transformations into a "royal straight flush" of Spades!
+		ask_transformation(HAND_SLOT,5, 14, 4)
+		return
+	end
+	
+	-----------------
+	-- 4 wildcards --
+	-----------------
+	
+	if w == 4 then
+		-- We have 4 wildcards. Transform the 4th one to 1 rank above the highest card on player's hand.
+		-- If that is not possible, transform to 1 rank below. In both cases, we are going for the highest
+		-- possible "straight flush".
+		
+		if hand_slots[5].rank < 14 then
+			ask_transformation(HAND_SLOT,4, hand_slots[5].rank + 1, hand_slots[5].suit)
+		else
+			ask_transformation(HAND_SLOT,4, hand_slots[5].rank - 1, hand_slots[5].suit)
+		end
+		
+		return
+		
+	end
+
+	-----------------
+	-- 3 wildcards --
+	-----------------
+	
+	if w == 3 then
+		
+		-- We have 3 wildcards. This is a bit more complex...
+
+		if hand_slots[4].rank == hand_slots[5].rank then
+			-- The player has "one pair". Let's keep going with the same rank.
+			-- This will cascade further transformations into a "five of a kind".
+			ask_transformation(HAND_SLOT,3, hand_slots[5].rank, hand_slots[5].suit)
+			return
+		end
+
+		if same_suit == true then
+
+			if hand_slots[5].rank - hand_slots[4].rank == 1 then
+				-- The player has a "sequence" of the same suit.
+				-- Lets increse it!
+				if hand_slots[5].rank < 14 then
+					ask_transformation(HAND_SLOT,3,hand_slots[5].rank+1,hand_slots[5].suit)
+					return
+				else
+					ask_transformation(HAND_SLOT,3,hand_slots[4].rank-1,hand_slots[4].suit)
+					return
+				end
+			end
+
+			-- Lets check if the gap in the sequence can be filled with 3 wildcards
+
+			if hand_slots[5].rank - hand_slots[4].rank <= 4 then
+				ask_transformation(HAND_SLOT,3, hand_slots[5].rank-1, hand_slots[5].suit)
+				return
+			end
+		end
+		-- Go with "four of a kind"...
+		ask_transformation(HAND_SLOT,3, hand_slots[5].rank, hand_slots[5].suit) -- four of a kind with the high card
+		return
+	end
+
+	-----------------
+	-- 2 wildcards --
+	-----------------
+
+	if w == 2 then
+
+		-- We have 2 wildcards. Evaluation complexity increases...
+
+		if hand_slots[3].rank == hand_slots[4].rank and hand_slots[4].rank == hand_slots[5].rank then
+			-- The player has "three of a kind". Keep going until "five of a kind".
+			ask_transformation(HAND_SLOT,2, hand_slots[5].rank, hand_slots[5].suit)
+			return
+		end
+
+		if same_suit == true then -- if hand_slots[3].suit == hand_slots[4].suit and hand_slots[4].suit == hand_slots[5].suit then
+
+			-- The player has three cards of the same suit. We'll try to fill the gaps (if any) between
+			-- them and go for a "straight flush". 
+
+			if hand_slots[4].rank - hand_slots[3].rank == 1 and hand_slots[5].rank - hand_slots[4].rank == 1 then
+				-- The cards are in straight sequence. Try to increase it!
+				if hand_slots[5].rank < 14 then
+					ask_transformation(HAND_SLOT,2, hand_slots[5].rank + 1, hand_slots[5].suit)
+				else
+					ask_transformation(HAND_SLOT,2, hand_slots[3].rank - 1, hand_slots[3].suit)
+				end
+				return
+			end
+
+			-- If the player has at least "one pair", go with "four of a kind" or "five of a kind".
+			-- This last case will happen if the player already has "tree of a kind", but we don't
+			-- need to test for it cos it'll lead to "five of a kind" anyways.
+
+			if hand_slots[4].rank == hand_slots[5].rank then
+				ask_transformation(HAND_SLOT,2, hand_slots[5].rank, hand_slots[5].suit)
+				return
+			end
+
+			if hand_slots[3].rank == hand_slots[4].rank then
+				ask_transformation(HAND_SLOT,2, hand_slots[3].rank, hand_slots[3].suit)
+				return
+			end
+
+			-- If we get here, then we must still test for a "straight flush". The last 
+			-- resort will be a "flush", which still better than "three of a kind"!
+			
+			if hand_slots[5].rank - hand_slots[3].rank <=4 then
+
+				-- The gap between the lowest and highest card on the player's hand
+				-- can be filled with 3 cards. We already have one in between. That
+				-- will be enough to assure a "straight flush" with the two wildcards
+				-- we have, so let's fill the gaps!
+				
+				if hand_slots[5].rank - hand_slots[4].rank > 1 then
+					ask_transformation(HAND_SLOT,2, hand_slots[5].rank-1, hand_slots[5].suit)
+					return
+				end
+
+				-- If there is no gap between 4 and 5, then it must be between 3 and 4!
+				
+				ask_transformation(HAND_SLOT,2, hand_slots[3].rank+1, hand_slots[3].suit)
+				return
+			end
+
+			-- The last resort is a "flush"
+
+			ask_transformation(HAND_SLOT,2, hand_slots[5].rank, hand_slots[5].suit)
+			
+			return
+			
+		end
+
+		-- If the suits don't match, but we have at least "one pair", then the best
+		-- option is to go for a "four of a kind". We may even get a "five of a kind" if
+		-- the player already has "three of a kind". We do not need to test for that if we have
+		-- "one pair", since the best hand will always be "four of a kind" in this situation.
+		
+		if hand_slots[4].rank == hand_slots[5].rank then
+			-- We have "one pair" or "three of a kind".
+			ask_transformation(HAND_SLOT,2, hand_slots[5].rank, hand_slots[5].suit)
+			return
+		end
+
+		if hand_slots[3].rank == hand_slots[4].rank then
+			-- We have only "one pair". Let's make it a "four of a kind".
+			ask_transformation(HAND_SLOT,2, hand_slots[3].rank, hand_slots[3].suit)
+			return
+		end
+
+		-- If we got here, then the decision is between a "straight" and "three of a kind".
+
+		if hand_slots[5].rank - hand_slots[3].rank <= 4 then
+
+			-- We have a gap that can be filled with 2 wildcards.
+			
+			if hand_slots[5].rank - hand_slots[4].rank > 1 then
+				ask_transformation(HAND_SLOT,2, hand_slots[5].rank-1, hand_slots[5].suit)
+				return
+			end
+			
+			if hand_slots[4].rank - hand_slots[3].rank > 1 then
+				ask_transformation(HAND_SLOT,2, hand_slots[3].rank+1, hand_slots[3].suit)
+				return
+			end
+			
+			-- No gap found. Go to the edges...
+			
+			if hand_slots[5].rank < 14 then
+				ask_transformation(HAND_SLOT,2, hand_slots[5].rank+1,hand_slots[5].suit)
+			else
+				ask_transformation(HAND_SLOT,2, hand_slots[3].rank-1, hand_slots[3].suit)
+			end
+			return
+		end
+
+		-- The gap between the cards can't be filled with only 2 wildcards.
+		-- So, let's go with "three of a kind"...
+
+		ask_transformation(HAND_SLOT,2, hand_slots[5].rank, hand_slots[5].suit)
+		
+		return
+		
+	end
+
+	----------------
+	-- 1 wildcard --
+	----------------
+
+	round_animating = true; round_delay = 1 -- This will give the player one second to see what happened :o)
+	
+	-- I think this will be the most difficult evaluation to do :/
+	
+	if same_suit == true then
+
+		-- All 4 cards on the player's hand have the same suit. If they are in
+		-- sequence, then we'll try to increase it for a "straight flush"...
+
+		if  hand_slots[3].rank - hand_slots[2].rank == 1 and
+			hand_slots[4].rank - hand_slots[3].rank == 1 and
+			hand_slots[5].rank - hand_slots[4].rank == 1 then
+			-- We have a straight sequence.
+			if hand_slots[5].rank < 14 then
+				ask_transformation(HAND_SLOT,1, hand_slots[5].rank+1, hand_slots[5].suit)
+			else
+				ask_transformation(HAND_SLOT,1, hand_slots[2].rank-1, hand_slots[2].suit)
+			end
+			return
+		end
+
+	end
+
+	-- If "straight flush" was not an option, then we must test "four of a kind".
+	-- It will be possible if the player already have "three of a kind" at hand.
+
+	if hand_slots[2].rank == hand_slots[3].rank and hand_slots[3].rank == hand_slots[4].rank then
+		ask_transformation(HAND_SLOT,1, hand_slots[2].rank, hand_slots[2].suit)
+		return
+	end
+
+	if hand_slots[3].rank == hand_slots[4].rank and hand_slots[4].rank == hand_slots[5].rank then
+		ask_transformation(HAND_SLOT,1, hand_slots[3].rank, hand_slots[3].suit)
+		return
+	end
+
+	-- If we got here, then "four of a kind" was not an option. We must test for a "Full House"...
+
+	if hand_slots[2].rank == hand_slots[3].rank then
+		
+		if  hand_slots[4].rank == hand_slots[5].rank then
+			-- The player has "two pair". Lets go for a "full house" with the high card.
+			ask_transformation(HAND_SLOT,1, hand_slots[5].rank, hand_slots[5].suit)
+			return
+		else
+			if same_suit == true then
+				ask_transformation(HAND_SLOT,1, hand_slots[5].rank, hand_slots[5].suit) -- any card will do...
+			else
+				ask_transformation(HAND_SLOT,1, hand_slots[2].rank, hand_slots[2].suit)
+			end
+			return
+		end
+		
+	end
+
+	if hand_slots[3].rank == hand_slots[4].rank then
+		-- Going to "flush" or "three of a kind", depending on the rest of the hand.
+		ask_transformation(HAND_SLOT,1, hand_slots[4].rank, hand_slots[4].suit) -- any card will do...
+		return
+	end
+	
+	if hand_slots[4].rank == hand_slots[5].rank then
+		-- Going to "flush" or "three of a kind", depending on the rest of the hand.
+		ask_transformation(HAND_SLOT,1, hand_slots[5].rank, hand_slots[5].suit) -- any card will do...
+		return
+	end
+		
+	-- The possibilities are shrinking, but we have yet a few ones to test. If we got here,
+	-- then we must test for a "straight". It will be a "straight flush" if all cards have
+	-- the same suit.
+	
+	if hand_slots[5].rank - hand_slots[2].rank <= 4 then
+
+		-- The "straight" is possible. Let's find the gap and fill it!
+
+		if hand_slots[5].rank - hand_slots[4].rank > 1 then
+			ask_transformation(HAND_SLOT,1,hand_slots[5].rank-1,hand_slots[5].suit)
+			return
+		end
+
+		if hand_slots[4].rank - hand_slots[3].rank > 1 then
+			ask_transformation(HAND_SLOT,1,hand_slots[4].rank-1,hand_slots[4].suit)
+			return
+		end
+
+		if hand_slots[3].rank - hand_slots[2].rank > 1 then
+			ask_transformation(HAND_SLOT,1,hand_slots[3].rank-1,hand_slots[3].suit)
+			return
+		end
+		
+		-- No gap found. Go for the edges...
+
+		if hand_slots[5].rank < 14 then
+			ask_transformation(HAND_SLOT,1, hand_slots[5].rank+1, hand_slots[5].suit)
+		else
+			ask_transformation(HAND_SLOT,1, hand_slots[2].rank-1, hand_slots[2].suit)
+		end
+		return		
+	end
+
+	-- If we got here, then the best option will be a "flush". 
+
+	if same_suit == true then
+		ask_transformation(HAND_SLOT,1, hand_slots[5].rank, hand_slots[5].suit) -- any card will do...
+		return
+	end
+	
+	-- Test for "three of a kind".
+
+	if hand_slots[4].rank == hand_slots[5].rank then
+		ask_transformation(HAND_SLOT,1, hand_slots[5].rank, hand_slots[5].suit)
+		return
+	end
+
+	if hand_slots[3].rank == hand_slots[4].rank then
+		ask_transformation(HAND_SLOT,1, hand_slots[4].rank, hand_slots[4].suit)
+		return
+	end
+	
+	-- Well... we finaly got there. 
+	-- The player has nothing good on her hand.
+	-- Let's make him "one pair" with the high card.
+	
+	ask_transformation(HAND_SLOT,1, hand_slots[5].rank, hand_slots[5].suit)
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function ask_transformation (type, slot, rank, suit)
+
+	local c
+	
+	if type == HAND_SLOT then
+		c = msg.url(nil, hand_slots[slot].card, "card")
+	else
+		c = msg.url(nil, table_slots[slot].card, "card")
+	end
+
+	local p = go.get_position(c)
+
+	local properties = {}
+
+	properties.suit = suit
+	properties.rank = rank
+	properties.slot_type = type
+	properties.slot_number = slot
+
+	properties.deck = go.get(c,"deck")
+	properties.ice = go.get(c,"ice")
+	properties.old = go.get(c,"old")
+	properties.locked = go.get(c, "locked")
+	properties.ghost = go.get(c,"ghost")
+	properties.shaking = go.get(c, "shaking")
+	properties.last_position = go.get(c, "last_position")
+
+	local card = factory.create("#card_" .. suit, p, nil , properties)
+
+	if type == HAND_SLOT then
+		hand_slots[slot].card = card
+		hand_slots[slot].suit = suit
+		hand_slots[slot].rank = rank
+	else
+		table_slots[slot].card = card
+		table_slots[slot].suit = suit
+		table_slots[slot].rank = rank
+	end
+
+	if go.get(c,"rank") == 0 then
+		hand_slots[slot].solving = true
+		msg.post(c, "sublime")
+	else
+		go.delete(c)
+	end
+
+	round_sorting = true
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function close_gaps()
+	
+	-- Proceed only if not already closing a gap.
+	-- Don't forget to release semaphore_gap!
+
+	for i = 1, 5 do
+		if hand_slots[i].solving == true then 
+			semaphore_gap = false
+			return 
+		end
+	end
+
+	--[[ Debug Code
+	
+	local u = ""
+
+	for i = 1, 5 do
+		if hand_slots[i].used == true then 
+			u = u .. "X"
+		else
+			u = u .. "."
+		end
+	end
+
+	print("slots state: " .. u)
+
+	--]]
+	
+	-- Look for gaps in between cards at player's hand and close them:
+	
+	local gaps_closed = true
+	
+	for i = 5, 2, -1 do
+		if hand_slots[i].used == true then
+			
+			if hand_slots[i-1].used == false then
+				hand_slots[i].solving = true
+				hand_slots[i], hand_slots[i-1] = hand_slots[i-1], hand_slots[i] -- swap slots contents
+				msg.post(hand_slots[i-1].card, "slot", { slot = i-1 })
+				gaps_closed = false
+				break
+			end
+			
+		end
+		
+	end
+
+	closing_gaps = not gaps_closed
+	
+	semaphore_gap = false	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function enable_magic()
+	for i = 1, 10 do
+		if go.get("/magic_"..i.."/button#magic", "active") then
+			msg.post("/magic_"..i.."/button#magic", "activate")
+		end
+	end
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function spawn_crack(self, action_id, action)
+
+	if intro then return end
+	
+	if crack_active == false then
+
+		crack_active = true
+		play_go = true
+
+		local ox = screen_gx * (action.x - ORIGINAL_SCREEN_W / 2) / (ORIGINAL_SCREEN_W / 2)
+		local oy = screen_gy * (action.y - ORIGINAL_SCREEN_H / 2) / (ORIGINAL_SCREEN_H / 2)
+		
+		point = vmath.vector3(action.x + ox, action.y + oy, 0)
+		
+		factory.create("#cracks", point)
+		
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function next_level()
+
+	local sf = vmath.vector3()
+	local st = vmath.vector3()
+
+	if (start == 0) or (level >= start) then -- If we are not starting at level 0, this part of code do not need to run.
+		
+		if level_up_stage == 1 then 
+			if level >= 0 then 
+				snd_play("voice_fx#level_complete") 
+				level_up_delay = 1
+				if chips < 10 then 
+					create_chips(chips + 1)
+				end
+			end
+			return
+		end
+		
+		if level_up_stage == 2 and level >= 0 then 
+
+			if joker_active then -- The joker is in play...
+
+				sf = go.get_world_position("/hud/joker")
+				st = go.get_world_position("/locker")
+				factory.create("/table#bolt", sf, nil , { sf = sf, st = st , type = STRIKE_BURST, duration = 1, follow = 0 } )
+				
+				sf = go.get_world_position("/hud/scepter")
+				st = go.get_world_position("/locker")
+				factory.create("/table#bolt", sf, nil , { sf = sf, st = st , type = STRIKE_BURST, duration = 1, follow = 0 } )
+
+			else
+
+				if level > 7 then
+					sf = go.get_position("/pump/heart_engine")
+					st = go.get_world_position("/locker")
+					factory.create("/table#bolt", sf, nil , { sf = sf, st = st , type = STRIKE_BURST, duration = 1, follow = 0 } )
+				else
+					sf = go.get_world_position("/hud/shield")
+					st = go.get_world_position("/locker")
+					factory.create("/table#bolt", sf, nil , { sf = sf, st = st , type = STRIKE_BURST, duration = 1, follow = 0 } )
+
+					sf = go.get_world_position("/hud/crown")
+					st = go.get_world_position("/locker")
+					factory.create("/table#bolt", sf, nil , { sf = sf, st = st , type = STRIKE_BURST, duration = 1, follow = 0 } )
+				end
+				
+			end
+
+			level_up_delay = 0.5
+			
+			return
+		end
+
+	end
+	
+	if level_up_stage == 3 and level >= 0 then
+		msg.post("/chest", "open")
+		level_up_delay = 0.5
+	end
+
+	if level_up_stage == 4 and level >= 0 then
+		
+		if level == LEVEL_TWIST_3 - 1 then
+			st = go.get("/magic_9/magic_slot" , "position")
+			msg.post("/chest_fireball", "fire", { st = st } )
+		elseif level == LEVEL_TWIST_3 then
+			st = go.get("/magic_10/magic_slot" , "position")
+			msg.post("/chest_fireball", "fire", { st = st } )
+		elseif level < 8 then
+			st = go.get("/magic_" .. (level + 1) .. "/magic_slot" , "position")
+			msg.post("/chest_fireball", "fire", { st = st } )
+		else
+			for i = 1, 8 do
+				if table_slots[i].used and table_slots[i].rank ~= 0 then
+					fireball_card = i
+					if math.random(0, 100) > 50 then break end -- This will introduce some randomness to the process of selecting a card to switch.
+				end
+			end
+			if fireball_card == 0 then
+				if deck_pointer <= 52 then
+					deck[deck_pointer].rank = 0
+					deck[deck_pointer].suit = 0
+				end
+				st = go.get("/table" , "position")
+				msg.post("/chest_fireball", "fire", { st = st } )
+			else
+				st = go.get(table_slots[fireball_card].card , "position")
+				msg.post("/chest_fireball", "fire", { st = st } )
+			end
+		end
+		level_up_delay = 2
+	end
+	
+	if level_up_stage == 5 then
+
+		if fireball_card ~= 0 then
+			ask_transformation(TABLE_SLOT, fireball_card, 0, 0)
+			fireball_card = 0
+		end
+		
+		msg.post("/chest", "close")
+		
+		level = level + 1
+		
+		if level + 1 == LEVEL_TWIST_1 then
+			msg.post("/pump/heart_engine", "activate")
+		elseif level + 1 == LEVEL_TWIST_3 then
+			msg.post("/magic_9/button#magic", "tease")
+		elseif level + 1 == LEVEL_TWIST_3 + 1 then
+			msg.post("/magic_10/button#magic", "tease")
+		end
+
+		if level == LEVEL_TWIST_3 - 2 then
+
+			msg.post("/magic_9/button#magic", "reveal", { animate = true } )
+			msg.post("/magic_10/button#magic", "reveal", { animate = true } )
+			
+		elseif level == LEVEL_TWIST_3 then
+			
+			msg.post("/magic_9/button#magic", "conquer", { skip_balloon = false } )
+
+		elseif level == LEVEL_TWIST_3 + 1 then
+
+			msg.post("/magic_10/button#magic", "conquer", { skip_balloon = false } )
+			
+		elseif level < 9 then
+
+			if level > 0 then msg.post("/magic_".. level .."/button#magic", "conquer", { skip_balloon = false } ) end
+
+			if level >= start then
+				if level < 8 then
+					msg.post("/hud/crown", "next")
+					msg.post("/hud/shield", "next")
+					msg.post("/magic_".. (level + 1) .."/button#magic", "tease")
+				else
+					msg.post("/hud/crown", "hide")
+					msg.post("/hud/shield", "hide")
+				end	
+			end
+				
+		end
+			
+		msg.post("/hud/life_enemy", "replenish")
+		msg.post("/hud/life_player", "replenish")
+
+		label.set_text("/hud/level#label", tostring(level + 1))
+
+		for i = 1, 10 do
+			if go.get("/magic_".. i .."/button#magic", "active") == true then
+				msg.post("/magic_".. i .."/button#magic", "replenish")
+				msg.post("/magic_".. i .."/button#magic", "activate")
+			end
+		end
+		
+		level_up_delay = 2 -- ** Review **
+		
+		return
+	end
+
+	if level == 8 then -- Actually 9 for the player.
+		msg.post("/hud/banner_L", "hide")
+		msg.post("/hud/banner_R", "hide")
+	end
+
+	if level_up_stage == 6 then
+		level_up = false
+		level_up_stage = 0
+		round = 0 -- This will inhibit the first attack of the next contender.
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function collect_debug_data()
+
+	local s = ""
+
+	local w,h = window.get_size()
+	
+	s = w .. "x" .. h .. "\n\n"
+	
+	------------------------------
+	--------     HAND     --------
+	------------------------------
+
+	for i = 1, 5 do
+		if hand_slots[i].used then
+			if hand_slots[i].rank then
+				s = s .. string.sub("0123456789XJQKA", hand_slots[i].rank +1, hand_slots[i].rank + 1)
+			else
+				s = s .. "?"
+			end
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " ranks\n"
+
+	for i = 1, 5 do
+		if hand_slots[i].used then
+			if hand_slots[i].suit then
+				s = s .. string.sub("0DHCS", hand_slots[i].suit + 1, hand_slots[i].suit + 1)
+			else
+				s = s .. "?"
+			end
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " suits\n"
+			
+	for i = 1, 5 do
+		if hand_slots[i].used then
+			s = s .. "X"
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " used\n"
+
+	for i = 1, 5 do
+		if hand_slots[i].solving then
+			s = s .. "X"
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " solving\n"
+	
+	for i = 1, 5 do
+		if hand_slots[i].unstable then
+			s = s .. "X"
+		else
+			s = s .. "."
+		end
+	end
+	
+	s = s .. " unstable\n\n"
+	
+	------------------------------
+	--------     TABLE     -------
+	------------------------------
+	
+	for i = 1, 8 do
+		if table_slots[i].used then
+			if table_slots[i].rank then
+				s = s .. string.sub("0123456789XJQKA", table_slots[i].rank +1, table_slots[i].rank + 1)
+			else
+				s = s .. "?"
+			end
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " ranks\n"
+
+	for i = 1, 8 do
+		if table_slots[i].used then
+			if table_slots[i].suit then
+				s = s .. string.sub("0DHCS", table_slots[i].suit + 1, table_slots[i].suit + 1)
+			else
+				s = s .. "?"
+			end
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " suits\n"
+	
+	for i = 1, 8 do
+		if table_slots[i].used then
+			s = s .. "X"
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " used\n"
+	
+	for i = 1, 8 do
+		if table_slots[i].solving then
+			s = s .. "X"
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " solving\n\n"
+
+	for i = 1, 8 do
+		if magic_slots[i].unstable then
+			s = s .. "X"
+		else
+			s = s .. "."
+		end
+	end
+
+	s = s .. " unstable magic\n\n"
+
+	s = s .. " round_unstable   = " .. tostring(round_unstable) .. "\n"
+	s = s .. " round_dealing    = " .. tostring(round_dealing) .. "\n"
+	s = s .. " round_attacking  = " .. tostring(round_attacking) .. "\n"
+	s = s .. " round_evaluating = " .. tostring(round_evaluating) .. "\n"
+	s = s .. " round_picking    = " .. tostring(round_picking) .. "\n"
+	s = s .. " round_sorting    = " .. tostring(round_sorting) .. "\n"
+	s = s .. " round_animating  = " .. tostring(round_animating) .. "\n"
+	s = s .. " round_cleaning   = " .. tostring(round_cleaning) .. "\n"
+	s = s .. " round_finished   = " .. tostring(round_finished) .. "\n\n"
+	
+	s = s .. " closing_gaps = " .. tostring(closing_gaps) .. "\n\n"
+
+	s = s .. " semaphore_sort  = " .. tostring(semaphore_sort) .. "\n"
+	s = s .. " semaphore_gap   = " .. tostring(semaphore_gap) .. "\n"
+	s = s .. " semaphore_clean = " .. tostring(semaphore_clean) .. "\n\n"
+
+	s = s .. " level_up = " .. tostring(level_up) .. "\n"
+	s = s .. " stage    = " .. tostring(level_up_stage) .. "\n"
+
+	s = s .. " lv delay = " .. tostring(level_up_delay) .. "\n"
+	s = s .. " rd delay = " .. tostring(round_delay) .. "\n\n"
+	
+	s = s .. os.time()
+
+	label.set_text("/debug#label", s)
+
+	msg.post("@render:", "draw_line", { start_point =lf, end_point = lt, color = vmath.vector4(1,0,0,1) })
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function snd_play(url)
+	if opt_sound then
+		sound.play(url)
+	end
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function music_play()
+
+	if opt_music then
+		soundtrack = soundtrack + 1
+		if soundtrack > 8 then soundtrack = 1 end
+		soundtrack_id = factory.create("/music#track_" .. soundtrack)
+	end
+	
+end
+------------------------------------------------------------------------------------------------------------------------
+
+function music_stop()
+	msg.post(soundtrack_id, "stop")
+	soundtrack_id = 0
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function music_done(self, message_id, message, play_id, sender)
+	go.delete(self.id)
+	music_play()
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function contender_attack()
+
+	round_attack = true
+	
+	if (level > 7) or (level == 0 and round == 0) or (level > 0 and round == 1) then return end
+
+	local c
+	local slot = 0
+	local rank = 0
+	local iced = false
+	local protected = false
+
+	for i = 1, 8 do
+		if table_slots[i].used then
+			c = msg.url(nil, table_slots[i].card, "card")			
+			protected = go.get(c, "protected")
+			rank = go.get(c, "rank")
+			if level == 2 then iced = go.get(c,"ice") end			
+			if protected == false and iced == false and rank ~= 0 then
+				slot = i
+				if math.random(0, 100) > 50 then break end
+			end
+		end
+	end
+
+	if slot == 0 then return end
+
+	round_attacking = true
+	
+	magic_selected = level + 1
+
+	msg.post(table_slots[slot].card, "pick")
+
+	local clear = 0
+	local delay = 0
+
+	if level == 0 then delay = 1 else delay = 0.5 end
+
+	clear = timer.delay(delay, false, clear_attack)
+
+	if delay == timer.INVALID_TIMER_HANDLE then
+		round_attacking = false -- If we can't create a timer, then lets clear the delay right away...
+	end
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function clear_attack(self, handle, time_elapsed)
+	round_attacking = false
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function load_options()
+
+	local file_path = sys.get_save_file("Holdem", "holdem.options.dat")
+
+	local data = sys.load(file_path)
+
+	if table.maxn(data) ~= 0 then
+
+		local options = json.decode(data[1])
+
+		opt_info = options["opt_info"]
+		opt_praise_text = options["opt_praise_text"]
+		opt_praise_voice = options["opt_praise_voice"]
+		opt_hand_text = options["opt_hand_text"]
+		opt_hand_voice = options["opt_hand_voice"]
+		opt_music = options["opt_music"]
+		opt_sound = options["opt_sound"]
+		opt_tips = options["opt_tips"]
+
+		if sound.is_music_playing() then opt_music = false end -- If, on initialization, there is background music playing, turn off this app music.
+
+		msg.post("/options/info", "state", { state = opt_info } )
+		msg.post("/options/praise_txt", "state", { state = opt_praise_text } )
+		msg.post("/options/praise_snd", "state", { state = opt_praise_voice } )
+		msg.post("/options/scroll_txt", "state", { state = opt_hand_text } )
+		msg.post("/options/scroll_snd", "state", { state = opt_hand_voice } )
+		msg.post("/options/music", "state", { state = opt_music } )
+		msg.post("/options/sound_fx", "state", { state = opt_sound } )
+		msg.post("/options/tips", "state", { state = opt_tips } )
+		
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function test_collision(action, group)
+
+	-- Trow a ray_cast from the center of the screen to the point of touch. If it hits
+	-- a collision object on the go, but not on coming back (the reverse path), then
+	-- the touch happened 'inside' that collision object area. Defold doesn't count hits
+	-- when the start point of a ray_cast is inside a collision object. We use that
+	-- in our favor to isolate a single interface "button" by its collision group.
+	
+	local test = hash(group) -- the group to test for touch
+	
+	local point_a -- start point coordinates -- screen center
+	local point_b -- end point coordinates -- point of touch
+
+	local g -- will be set to a raycast from point a to point b (g is for going)
+	local b -- will be set to a raycast from point b to point a (b is for back)
+
+	local mg = 0 -- max index for a given table
+	local mb = 0 -- max index for a given table
+
+	local id = 0
+
+	local hits_g = {} 
+	local hits_b = {}
+	
+	local found = false
+	
+	---------------------------------------------------------------------------
+	-- 0,5625 is our magic number. It's the ratio for 16:9 screen resolution --
+	---------------------------------------------------------------------------
+	-- If the device resolution is not at 16:9 aspect ratio, then we'll have --
+	-- black gaps at the top/bottom or left/right of the screen. In order to --
+	-- correct the user input, we'll have to calculate an offset on X or Y   --
+	-- axis, deppending on the differences in the screen's width & height    --
+	-- The magnitude of the offset will be proportional to the distance from --
+	-- the click/touch to the edge of the screen in the affected dimmension. --
+	---------------------------------------------------------------------------
+
+	local ox = screen_gx * (action.x - ORIGINAL_SCREEN_W / 2) / (ORIGINAL_SCREEN_W / 2)
+	local oy = screen_gy * (action.y - ORIGINAL_SCREEN_H / 2) / (ORIGINAL_SCREEN_H / 2)
+		
+	--point_a = go.get("/table", "position") -- we'll use the table as a reference to the screen center (may not be exact)
+	point_a = vmath.vector3(640, 800, 0) -- The screen top center. North. A little above the real screen size, so items in the very top can be found.
+	point_b = vmath.vector3(action.x + ox, action.y + oy, 0)
+
+	lf.x = point_a.x
+	lf.y = point_a.y
+
+	lt.x = point_b.x
+	lt.y = point_b.y
+
+	group = { hash(group) }
+
+	g = physics.raycast(point_a, point_b, group, { all = true } ) -- going
+	b = physics.raycast(point_b, point_a, group, { all = true } ) -- back
+	
+	if g == nil then
+		return 0
+	else
+		if b == nil then 
+			return g[1].id
+		end
+		mg = table.maxn(g)
+		for i = 1, mg do
+			table.insert(hits_g, 1, g[i].id)
+		end
+	end
+
+	mb = table.maxn(b)
+	for i = 1, mb do
+		table.insert(hits_b, 1, b[i].id)
+	end
+
+	mg = table.maxn(hits_g)
+	mb = table.maxn(hits_b)
+	
+	for i = 1, mg do
+
+		found = false
+
+		for j = 1, mb do
+			if hits_g[i] == hits_b[j] then
+				found = true
+				break
+			end
+		end
+		
+		if not found then
+			id = hits_g[i]
+			break
+		end
+		
+	end
+
+	return id
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function initialize_combinations()
+
+	combinations = {}
+
+	cancel_tip = false
+		
+	suggestion = 0
+	suggestion_points = 0
+	
+	combination = 0
+	combinations_count = 0
+	combinations_done = false
+
+	suggestion_delay = 5 * (level + 1) -- a time in seconds, which will increase deppending on level.
+
+	if suggestion_delay > MAX_TIP_DELAY then suggestion_delay = MAX_TIP_DELAY end
+	
+	local bits = 0
+	local test = 0
+
+	if 		hand_slots[5].used then
+			cancel_tip = true
+			return
+	elseif  hand_slots[4].used then test = 1
+	elseif 	hand_slots[3].used then test = 2
+	elseif 	hand_slots[2].used then test = 3
+	elseif 	hand_slots[1].used then test = 4
+	end
+
+	for i = 1, 255 do
+
+		bits = 0
+		
+		for j = 0, 7 do
+			if bit.band(i, 2 ^ j)  == 2 ^ j then
+				bits = bits + 1
+			end
+		end
+		
+		if bits == test then
+			combinations_count = combinations_count + 1
+			combinations[combinations_count] = i
+		end
+		
+	end
+
+	combinations_calc = true
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function test_combination()
+
+	combination = combination + 1
+
+	if combination > combinations_count then
+		combinations_done = true -- All combinations have been tested!
+		return
+	end 
+
+	-- The purpose of this function is to find a "tip" to give the player. It will
+	-- serve only for begginners, I guess. Experienced players may not even want a
+	-- tip. We'll try to find a valid hand (one that punctuates). It doesn't need
+	-- to be "the best hand", although this routine will try to find the one which
+	-- punctuates the most.
+
+	----------------------------------------------------------------------------
+	-- IMPORTANT: tips will NOT count wildcards, since they would have to be  --
+	--            resolved first (a high cost process to repeat every cycle). --
+	----------------------------------------------------------------------------
+
+	local start = 0
+	local hand = {}
+
+	for i = 1, 5 do
+		hand[i] = {}
+		if hand_slots[i].used then
+			hand[i].rank = hand_slots[i].rank
+			hand[i].suit = hand_slots[i].suit
+			hand[i].exponent = -1
+		else
+			if start == 0 then start = i end
+		end
+	end
+
+	for i = 0, 7 do
+		if bit.band(combinations[combination], 2 ^ i) == 2 ^ i then
+			if table_slots[i + 1].used then
+				hand[start].rank = table_slots[i + 1].rank
+				hand[start].suit = table_slots[i + 1].suit
+				hand[start].exponent = i
+				start = start + 1
+			else
+				return
+			end
+		end
+	end
+
+	for i = 1, 4 do
+		for j = i + 1, 5 do
+			if hand[i].rank > hand[j].rank then
+				hand[i], hand[j] = hand[j], hand[i]
+			end
+		end
+	end
+
+	local pts = evaluate_tip(hand)
+
+	if pts > suggestion_points then
+		suggestion = combinations[combination]
+		suggestion_points = pts
+	end
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function suggest_play()
+
+	if cancel_tip then return end
+	
+	local bits = ""
+	
+	for i = 0, 7 do
+		if bit.band(suggestion, 2 ^ i) == 2 ^ i then
+			bits = bits .. "X"
+			if table_slots[i+1].used then
+				msg.post(table_slots[i+1].card, "tip")
+			end
+		else
+			bits = bits .. "."
+		end
+	end
+
+	suggestion_delay = 10 -- Repeat this suggestion every 10 seconds
+	
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function evaluate_tip(hand)
+
+	while not resolve_tip(hand) do
+
+		-- If the wildcards are not fully solved, then we must resort the cards.
+
+		for i = 1, 4 do
+			for j = i + 1, 5 do
+				if hand[i].rank > hand[j].rank then
+					hand[i], hand[j] = hand[j], hand[i]
+				end
+			end
+		end
+
+	end
+
+	-- Some local variables to facilitate the job.
+
+	local one_pair = false
+	local two_pair = false
+	local three_kind = false
+	local straight = false
+	local flush = false
+	local full_house = false
+	local four_kind = false
+	local five_kind = false
+
+	local cards = "0123456789XJQKA"
+	local ranks = ""
+	local suits = ""
+	local sublime = "....."
+
+	-- Special case: 2345A
+
+	if hand[1].rank == 2 and hand[2].rank == 3 and hand[3].rank == 4 and hand[4].rank == 5 and hand[5].rank == 14 then
+		straight = true
+	end
+
+	-- Create a string for the ranks and another for the suits. This will enable us to make some quick checks.
+
+	for i = 1, 5 do
+		ranks = ranks .. string.sub(cards, hand[i].rank + 1, hand[i].rank + 1)
+		suits = suits .. string.sub("0DHCS", hand[i].suit + 1, hand[i].suit + 1)
+	end
+
+	-- When cards are used, they "sublime". Check for the cases where all 5 cards will do that.
+
+	if string.find(cards, ranks) then straight = true end
+	if suits == "DDDDD" or suits == "HHHHH" or suits == "CCCCC" or suits == "SSSSS" then flush = true end
+	if ranks == string.rep(string.sub(ranks,1,1),5) then five_kind = true end
+
+	if not five_kind then
+
+		if ranks == string.rep(string.sub(ranks,1,1), 3) .. string.rep(string.sub(ranks,5,5), 2) then full_house = true end
+		if ranks == string.rep(string.sub(ranks,1,1), 2) .. string.rep(string.sub(ranks,5,5), 3) then full_house = true end
+
+		if ranks == string.rep(string.sub(ranks,1,1), 4) .. string.sub(ranks,5,5) then 
+			four_kind = true
+			sublime = "....X"
+		end
+
+		if ranks == string.sub(ranks,1,1) .. string.rep(string.sub(ranks,5,5), 4) then
+			four_kind = true
+			sublime = "X...." 
+		end
+
+	end
+
+	-- If the highest hands were discarded, then test for "three of a kind"
+
+	if not straight and not flush and not five_kind and not full_house and not four_kind then
+
+		if string.rep(string.sub(ranks,1,1), 3) == string.sub(ranks,1,3) then
+			three_kind = true
+			sublime = "...XX"
+		end		
+
+		if string.rep(string.sub(ranks,5,5), 3) == string.sub(ranks,3,5) then
+			three_kind = true
+			sublime = "XX..."
+		end
+
+		if string.rep(string.sub(ranks,2,2), 3) == string.sub(ranks,2,4) then
+			three_kind = true
+			sublime = "X...X"
+		end
+
+	end
+
+	-- If none of the above whas found, then test for two pair
+
+	if not straight and not flush and not five_kind and not full_house and not four_kind and not three_kind then
+
+		if string.rep(string.sub(ranks, 1,1), 2) .. string.rep(string.sub(ranks, 3,3), 2) == string.sub(ranks,1,4) then -- AABBX
+			two_pair = true
+			sublime = "....X"
+		end
+
+		if string.rep(string.sub(ranks, 2,2), 2) .. string.rep(string.sub(ranks, 4,4), 2) == string.sub(ranks,2,5) then -- XAABB
+			two_pair = true
+			sublime = "X...."
+		end
+
+		if string.rep(string.sub(ranks, 1,1), 2) .. string.rep(string.sub(ranks, 4,4), 2) == string.sub(ranks,1,2) .. string.sub(ranks,4,5) then -- AAXBB
+			two_pair = true
+			sublime = "..X.."
+		end
+
+	end
+
+	-- If none of the above was found, then test for one pair
+
+	if not straight and not flush and not five_kind and not full_house and not four_kind and not three_kind and not two_pair then
+
+		if string.rep(string.sub(ranks, 1,1), 2) == string.sub(ranks,1,2) then
+			one_pair = true
+			sublime = "..XXX"
+		end
+
+		if string.rep(string.sub(ranks, 2,2), 2) == string.sub(ranks,2,3) then
+			one_pair = true
+			sublime = "X..XX"
+		end
+
+		if string.rep(string.sub(ranks, 3,3), 2) == string.sub(ranks,3,4) then
+			one_pair = true
+			sublime = "XX..X"
+		end
+
+		if string.rep(string.sub(ranks, 4,4), 2) == string.sub(ranks,4,5) then
+			one_pair = true
+			sublime = "XXX.."
+		end
+
+		if not one_pair then
+			sublime = "XXXX." -- Only the high card! :/ Bad hand!
+		end
+
+	end
+
+	-- Now lets remove from the combination the cards which will not be sublimed...
+
+	for i = 1, 5 do
+		if string.sub(sublime, i, i) == "X" then -- This card will not sublime ...
+			if hand[i].exponent ~= -1 then       -- ...so, f it came from the table, ...
+				combinations[combination] = bit.band(combinations[combination], bit.bnot(2 ^ hand[i].exponent)) -- ...then remove it from the tip.
+			end
+		end
+	end
+
+	-- Now let's give the points.
+
+	local pts = 0
+
+	if straight and flush and string.sub(ranks,5,5) == "A" then
+		pts = 0.14 -- royal straight flush
+	elseif straight and flush then
+		pts = 0.13 -- straight flush
+	elseif five_kind then
+		pts = 0.12
+	elseif four_kind then
+		pts = 0.11
+	elseif full_house then
+		pts = 0.10
+	elseif flush then
+		pts = 0.09
+	elseif straight then
+		pts = 0.08
+	elseif three_kind then
+		pts = 0.07
+	elseif two_pair then
+		pts = 0.06
+	elseif one_pair then
+		pts = 0.05
+	end
+
+	return pts
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function resolve_tip(hand)
+
+	local w = 0 -- will be set to the number of wildcards on the player's hand
+
+	local same_suit = true
+	local prev_suit = 0
+
+	for i = 1, 5 do
+
+		if hand[i].rank == 0 then w = w + 1 end
+
+		if hand[i].suit ~= 0 then
+			if prev_suit == 0 then
+				prev_suit = hand[i].suit
+			else
+				if hand[i].suit ~= prev_suit then 
+					same_suit = false
+				end
+			end
+		end
+
+	end
+
+	if w == 0 then return true end -- No wild cards!
+
+	----------------------------------------------
+	-- We have at least one wildcard to resolve --
+	----------------------------------------------
+
+	------------------
+	-- Special Case --
+	------------------
+
+	-- If the user has something like "2345A" then we mUst make it "A2345" (consider A to be 1 instead of 14)
+
+	local ranks = ""
+
+	for i = 1, 5 do
+		ranks = ranks .. string.sub("0123456789XJQKA", hand[i].rank +1, hand[i].rank + 1)
+	end
+
+	if string.find("0345A 0245A 0235A 0234A 0023A 0024A 0025A 0034A 0035A 0045A", ranks) then
+		hand[5].rank = 1
+		return false
+	end
+
+	-----------------
+	-- 5 wildcards --
+	-----------------
+
+	if w == 5 then 
+		-- We have 5 wildcards. Transform the 5th one to an Ace and leve.
+		-- This will cascade further transformations into a "royal straight flush" of Spades!
+		ask_change(hand, 5, 14, 4)
+		return false
+	end
+
+	-----------------
+	-- 4 wildcards --
+	-----------------
+
+	if w == 4 then
+		-- We have 4 wildcards. Transform the 4th one to 1 rank above the highest card on player's hand.
+		-- If that is not possible, transform to 1 rank below. In both cases, we are going for the highest
+		-- possible "straight flush".
+
+		if hand[5].rank < 14 then
+			ask_change(hand, 4, hand[5].rank + 1, hand[5].suit)
+		else
+			ask_change(hand, 4, hand[5].rank - 1, hand[5].suit)
+		end
+
+		return false
+
+	end
+
+	-----------------
+	-- 3 wildcards --
+	-----------------
+
+	if w == 3 then
+
+		-- We have 3 wildcards. This is a bit more complex...
+
+		if hand[4].rank == hand[5].rank then
+			-- The player has "one pair". Let's keep going with the same rank.
+			-- This will cascade further transformations into a "five of a kind".
+			ask_change(hand,3, hand[5].rank, hand[5].suit)
+			return false
+		end
+
+		if same_suit == true then
+
+			if hand[5].rank - hand[4].rank == 1 then
+				-- The player has a "sequence" of the same suit.
+				-- Lets increse it!
+				if hand[5].rank < 14 then
+					ask_change(hand, 3,hand[5].rank+1, hand[5].suit)
+					return false
+				else
+					ask_change(hand, 3, hand[4].rank-1, hand[4].suit)
+					return false
+				end
+			end
+
+			-- Lets check if the gap in the sequence can be filled with 3 wildcards
+
+			if hand[5].rank - hand[4].rank <= 4 then
+				ask_change(hand, 3, hand[5].rank-1, hand[5].suit)
+				return false
+			end
+		end
+		-- Go with "four of a kind"...
+		ask_change(hand, 3, hand[5].rank, hand[5].suit) -- four of a kind with the high card
+		return false
+	end
+
+	-----------------
+	-- 2 wildcards --
+	-----------------
+
+	if w == 2 then
+
+		-- We have 2 wildcards. Evaluation complexity increases...
+
+		if hand[3].rank == hand[4].rank and hand[4].rank == hand[5].rank then
+			-- The player has "three of a kind". Keep going until "five of a kind".
+			ask_change(hand, 2, hand[5].rank, hand[5].suit)
+			return false
+		end
+
+		if same_suit == true then -- if hand[3].suit == hand[4].suit and hand[4].suit == hand[5].suit then
+
+			-- The player has three cards of the same suit. We'll try to fill the gaps (if any) between
+			-- them and go for a "straight flush". 
+
+			if hand[4].rank - hand[3].rank == 1 and hand[5].rank - hand[4].rank == 1 then
+				-- The cards are in straight sequence. Try to increase it!
+				if hand[5].rank < 14 then
+					ask_change(hand, 2, hand[5].rank + 1, hand[5].suit)
+				else
+					ask_change(hand, 2, hand[3].rank - 1, hand[3].suit)
+				end
+				return false
+			end
+
+			-- If the player has at least "one pair", go with "four of a kind" or "five of a kind".
+			-- This last case will happen if the player already has "tree of a kind", but we don't
+			-- need to test for it cos it'll lead to "five of a kind" anyways.
+
+			if hand[4].rank == hand[5].rank then
+				ask_change(hand, 2, hand[5].rank, hand[5].suit)
+				return false
+			end
+
+			if hand[3].rank == hand[4].rank then
+				ask_change(hand, 2, hand[3].rank, hand[3].suit)
+				return false
+			end
+
+			-- If we get here, then we must still test for a "straight flush". The last 
+			-- resort will be a "flush", which still better than "three of a kind"!
+
+			if hand[5].rank - hand[3].rank <=4 then
+
+				-- The gap between the lowest and highest card on the player's hand
+				-- can be filled with 3 cards. We already have one in between. That
+				-- will be enough to assure a "straight flush" with the two wildcards
+				-- we have, so let's fill the gaps!
+
+				if hand[5].rank - hand[4].rank > 1 then
+					ask_change(hand, 2, hand[5].rank-1, hand[5].suit)
+					return false
+				end
+
+				-- If there is no gap between 4 and 5, then it must be between 3 and 4!
+
+				ask_change(hand, 2, hand[3].rank+1, hand[3].suit)
+				return false
+			end
+
+			-- The last resort is a "flush"
+
+			ask_change(hand, 2, hand[5].rank, hand[5].suit)
+
+			return false
+
+		end
+
+		-- If the suits don't match, but we have at least "one pair", then the best
+		-- option is to go for a "four of a kind". We may even get a "five of a kind" if
+		-- the player already has "three of a kind". We do not need to test for that if we have
+		-- "one pair", since the best hand will always be "four of a kind" in this situation.
+
+		if hand[4].rank == hand[5].rank then
+			-- We have "one pair" or "three of a kind".
+			ask_change(hand, 2, hand[5].rank, hand[5].suit)
+			return false
+		end
+
+		if hand[3].rank == hand[4].rank then
+			-- We have only "one pair". Let's make it a "four of a kind".
+			ask_change(hand, 2, hand[3].rank, hand[3].suit)
+			return false
+		end
+
+		-- If we got here, then the decision is between a "straight" and "three of a kind".
+
+		if hand[5].rank - hand[3].rank <= 4 then
+
+			-- We have a gap that can be filled with 2 wildcards.
+
+			if hand[5].rank - hand[4].rank > 1 then
+				ask_change(hand, 2, hand[5].rank-1, hand[5].suit)
+				return false
+			end
+
+			if hand[4].rank - hand[3].rank > 1 then
+				ask_change(hand, 2, hand[3].rank+1, hand[3].suit)
+				return false
+			end
+
+			-- No gap found. Go to the edges...
+
+			if hand[5].rank < 14 then
+				ask_change(hand, 2, hand[5].rank+1,hand[5].suit)
+			else
+				ask_change(hand, 2, hand[3].rank-1, hand[3].suit)
+			end
+			return false
+		end
+
+		-- The gap between the cards can't be filled with only 2 wildcards.
+		-- So, let's go with "three of a kind"...
+
+		ask_change(hand, 2, hand[5].rank, hand[5].suit)
+
+		return false
+
+	end
+
+	----------------
+	-- 1 wildcard --
+	----------------
+
+	if same_suit == true then
+
+		-- All 4 cards on the player's hand have the same suit. If they are in
+		-- sequence, then we'll try to increase it for a "straight flush"...
+
+		if  hand[3].rank - hand[2].rank == 1 and
+		hand[4].rank - hand[3].rank == 1 and
+		hand[5].rank - hand[4].rank == 1 then
+			-- We have a straight sequence.
+			if hand[5].rank < 14 then
+				ask_change(hand, 1, hand[5].rank+1, hand[5].suit)
+			else
+				ask_change(hand, 1, hand[2].rank-1, hand[2].suit)
+			end
+			return false
+		end
+
+	end
+
+	-- If "straight flush" was not an option, then we must test "four of a kind".
+	-- It will be possible if the player already have "three of a kind" at hand.
+
+	if hand[2].rank == hand[3].rank and hand[3].rank == hand[4].rank then
+		ask_change(hand, 1, hand[2].rank, hand[2].suit)
+		return false
+	end
+
+	if hand[3].rank == hand[4].rank and hand[4].rank == hand[5].rank then
+		ask_change(hand, 1, hand[3].rank, hand[3].suit)
+		return false
+	end
+
+	-- If we got here, then "four of a kind" was not an option. We must test for a "Full House"...
+
+	if hand[2].rank == hand[3].rank then
+
+		if  hand[4].rank == hand[5].rank then
+			-- The player has "two pair". Lets go for a "full house" with the high card.
+			ask_change(hand, 1, hand[5].rank, hand[5].suit)
+			return false
+		else
+			if same_suit == true then
+				ask_change(hand, 1, hand[5].rank, hand[5].suit) -- any card will do...
+			else
+				ask_change(hand, 1, hand[2].rank, hand[2].suit)
+			end
+			return false
+		end
+
+	end
+
+	if hand[3].rank == hand[4].rank then
+		-- Going to "flush" or "three of a kind", depending on the rest of the hand.
+		ask_change(hand, 1, hand[4].rank, hand[4].suit) -- any card will do...
+		return false
+	end
+
+	if hand[4].rank == hand[5].rank then
+		-- Going to "flush" or "three of a kind", depending on the rest of the hand.
+		ask_change(hand, 1, hand[5].rank, hand[5].suit) -- any card will do...
+		return false
+	end
+
+	-- The possibilities are shrinking, but we have yet a few ones to test. If we got here,
+	-- then we must test for a "straight". It will be a "straight flush" if all cards have
+	-- the same suit.
+
+	if hand[5].rank - hand[2].rank <= 4 then
+
+		-- The "straight" is possible. Let's find the gap and fill it!
+
+		if hand[5].rank - hand[4].rank > 1 then
+			ask_change(hand, 1, hand[5].rank-1, hand[5].suit)
+			return false
+		end
+
+		if hand[4].rank - hand[3].rank > 1 then
+			ask_change(hand, 1, hand[4].rank-1, hand[4].suit)
+			return false
+		end
+
+		if hand[3].rank - hand[2].rank > 1 then
+			ask_change(hand, 1, hand[3].rank-1, hand[3].suit)
+			return false
+		end
+
+		-- No gap found. Go for the edges...
+
+		if hand[5].rank < 14 then
+			ask_change(hand, 1, hand[5].rank+1, hand[5].suit)
+		else
+			ask_change(hand, 1, hand[2].rank-1, hand[2].suit)
+		end
+		return false		
+	end
+
+	-- If we got here, then the best option will be a "flush". 
+
+	if same_suit == true then
+		ask_change(hand, 1, hand[5].rank, hand[5].suit) -- any card will do...
+		return false
+	end
+
+	-- Test for "three of a kind".
+
+	if hand[4].rank == hand[5].rank then
+		ask_change(hand, 1, hand[5].rank, hand[5].suit)
+		return false
+	end
+
+	if hand[3].rank == hand[4].rank then
+		ask_change(hand, 1, hand[4].rank, hand[4].suit)
+		return false
+	end
+
+	-- Well... we finaly got there. 
+	-- The player has nothing good on her hand.
+	-- Let's make him "one pair" with the high card.
+
+	ask_change(hand, 1, hand[5].rank, hand[5].suit)
+
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function ask_change(hand, slot, rank, suit)
+	hand[slot].rank = rank
+	hand[slot].suit = suit
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function flip_cards()
+
+	no_input = NO_INPUT_DELAY - 10 -- After the first full delay, repeat every 10 seconds
+
+	if level < 8 then
+		msg.post("/hud/shield", "grow", { sound = false })
+		msg.post("/hud/crown", "grow")
+	end
+		
+	for i = 1, 8 do
+		if table_slots[i].used then
+			msg.post(table_slots[i].card, "play")
+		end
+	end
+	
+end

@@ -1,0 +1,33 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		disable_gui = false
+
+		snd_play("/sound_fx#answer")
+		
+		msg.post("/spender", "disable")
+		msg.post("/spend_no", "disable")
+		msg.post("/spend_yes", "disable")
+
+		for i = 1, 5 do
+			if hand_slots[i].used then
+				msg.post(hand_slots[i].card, "leave")
+			end
+		end
+
+		spender_active = false
+		
+		chips_spent = true
+				
+		round_delay = 1
+		round_finished = true
+		chips = chips - 1
+
+		combinations_calc = false -- recalculate tip combinations after changing hand.
+
+		auto_save = false
+		
+	end
+
+end

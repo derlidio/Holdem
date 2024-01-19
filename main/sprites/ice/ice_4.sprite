@@ -1,0 +1,4 @@
+tile_set: "/main/tiles/ice_4.tilesource"
+default_animation: "still"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

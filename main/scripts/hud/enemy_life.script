@@ -1,0 +1,142 @@
+go.property("life", 0)
+go.property("x", 0)
+go.property("delay", 0)
+go.property("pump", false)
+
+local reset_pump_delay = false
+local prev_x = 0
+
+function init(self)
+	self.x = go.get(".", "position.x")
+	local x = self.x + (175 - (175 * self.life))
+	go.set(".", "position.x", x)
+end
+
+function update(self, dt)
+	
+	-- We were having a crash in the game, which happened at level 6+. That is the point
+	-- we introduce the pump, which increases enemy life each second. I think the crash
+	-- was happening because we were updating two variables: self.life and self.delay
+	-- in two different places: update() and on_message(). Due to the nature of the engine,
+	-- I think those functions can, actually, be executed in paralel, generating conflict in
+	-- accessing those variables (at the same time). I tried to introduce a single flag to control
+	-- the updates, and make them happen each one in a single place. This, though, do not solve
+	-- the problem of updating the flag itself, and may incurr in crashes if Lua can't handle 
+	-- a boolean value switch (true-to-false, false-to-true) in a single clock cycle (one atomic
+	-- operation).
+	
+	if self.pump == true then
+		if reset_pump_delay then
+			self.delay = PUMP_DELAY
+			reset_pump_delay = false
+		else
+			if self.delay > 0 then
+				self.delay = self.delay - dt
+				if self.delay < 0 then
+					msg.post(".", "increment")
+				end
+			end
+		end
+	end
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	-- Any received message resets the PUMP_DELAY counter
+
+	reset_pump_delay = true
+	
+	------------------------------------------------------
+	---- The following messages must stay at the top! ----
+	------------------------------------------------------
+	
+	if message_id == hash("pump") then
+		self.pump = message.active
+	end
+	
+	if message_id == hash("replenish") then
+		self.life = 1
+		update_enemy_life(self, false)
+	end
+
+	------------------------------------------------------
+	
+	if level_up then return end -- Avoid hit/sum at round end (If enemy life reaches zero, then the player will level up!)
+	
+	if message_id == hash("hit") then
+
+		if level < 8 then
+			msg.post("/magic_".. (level + 1) .."/button#magic", "spin")
+		end
+
+		penalty = 1
+		
+		if level == 0 then penalty = 2 end
+		
+		self.life = self.life - message.points * penalty
+		
+		if self.life < 0 then 
+			self.life = 0 
+			level_up_delay = 1
+			level_up = true
+		end
+		
+		update_enemy_life(self, true)
+		
+		return
+	end
+
+	if message_id == hash("sum") then
+		self.life = self.life + message.points
+		if self.life > 1 then self.life = 1 end
+		update_enemy_life(self, false)
+		return
+	end
+	
+	if message_id == hash("increment") then
+		msg.post("/hud/life_player", "decrement") -- Humm...
+		self.life = self.life + PUMP_INCREMENT
+		if self.life > 1 then self.life = 1 end
+		update_enemy_life(self, false)		
+		return
+	end
+	
+	if message_id == hash("life") then
+		self.life = message.life
+		if self.life > 1 then self.life = 1 end
+		update_enemy_life(self, false)
+	end
+
+end
+
+function update_enemy_life(self, effects)
+
+	local x = math.floor(self.x + (175 - (175 * self.life)))
+
+	if x ~= prev_x then
+
+		local dif = math.abs(x - prev_x)
+		
+		if effects then
+			snd_play("/sound_fx#drain")
+			particlefx.play("#drain_red")
+		end
+
+		if dif >= 10 then
+			go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, x, go.EASING_OUTBOUNCE, 1)
+		elseif dif >= 2 then
+			go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, x, go.EASING_LINEAR, 0.5)
+		else
+			go.set(".", "position.x", x)
+		end
+		
+		prev_x = x
+		
+	end
+	
+	if self.life == 1 then
+		msg.post("/pump/heart_engine", "stop")
+	end
+
+end

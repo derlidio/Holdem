@@ -1,0 +1,39 @@
+function init(self)
+
+	msg.post(".", "disable")
+	go.set(".", "scale", vmath.vector3(0,0,1))
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("show") and opt_hand_text then
+
+		label.set_text("#text", message.text)
+		label.set_text("#shadow", message.text)
+		
+		go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1,1,1), go.EASING_OUTBOUNCE, 1, 0, hide_scroll)
+
+		sprite.play_flipbook("#pill_green", hash("green_still"))
+		sprite.play_flipbook("#pill_red",   hash("red_still"))
+		
+		msg.post(".", "enable")
+				
+	end
+	
+end
+
+function hide_scroll(self, url, property)
+
+	sprite.play_flipbook("#pill_green", hash("green_fill"))
+	sprite.play_flipbook("#pill_red", hash("red_drain"))
+	
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(0,0,1), go.EASING_LINEAR, 0.25, 1, disable_scroll)
+	
+end
+
+function disable_scroll(self, url, property)
+
+	msg.post(".", "disable")
+
+end

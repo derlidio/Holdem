@@ -1,0 +1,17 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		disable_gui = false
+
+		snd_play("/sound_fx#answer")
+		
+		msg.post("/spender", "disable")
+		msg.post("/spend_no", "disable")
+		msg.post("/spend_yes", "disable")
+
+		spender_active = false
+		
+	end
+	
+end

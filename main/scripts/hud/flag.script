@@ -1,0 +1,32 @@
+go.property("initial_position", vmath.vector3())
+go.property("visible", false)
+
+function init(self)
+	self.initial_position = go.get(".", "position")
+	go.set(".", "position.y", self.initial_position.y + 256)
+	msg.post(".", "disable")
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("show") then
+		self.visible = true
+		go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, self.initial_position.y, go.EASING_LINEAR, 1)
+		msg.post(".", "enable")
+		return
+	end
+
+	if message_id == hash("hide") then
+		self.visible = false
+		go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, self.initial_position.y + 256, go.EASING_LINEAR, 1)
+		msg.post(".", "enable")
+		return
+	end
+
+	if message_id == hash("reset") then
+		self.visible = false
+		go.set(".", "position.y", self.initial_position.y + 256)
+		msg.post(".", "disable")
+	end
+	
+end

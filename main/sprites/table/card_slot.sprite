@@ -1,0 +1,4 @@
+tile_set: "/main/atlases/arena.atlas"
+default_animation: "Card_Slot_A"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

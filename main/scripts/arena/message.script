@@ -1,0 +1,32 @@
+function init(self)
+
+	disable_gui = true
+
+	local s = go.get(".", "scale")
+	
+	go.set(".", "position", vmath.vector3(640,400,0.8))
+	go.set(".", "scale", vmath.vector3(0, 0, 1))
+
+	label.set_text("#label", modal_message)
+	label.set_text("#shadow", modal_message)
+
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, s, go.EASING_OUTBOUNCE, 0.5)
+	snd_play("/sound_fx#message")
+	
+end
+
+function on_message(self, message_id, message, sender)
+	
+	if message_id == hash("click") then
+		disable_gui = false
+		go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(0,0,1), go.EASING_LINEAR, 0.25, 0, kill_message)
+		snd_play("/sound_fx#answer")
+	end
+
+end
+
+function kill_message(self, url, property)
+
+	go.delete()
+	
+end

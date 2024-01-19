@@ -1,0 +1,19 @@
+go.property("id", 0)
+
+function init(self)
+	self.id = go.get_id()
+	sound.play("#music", nil, music_done)
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("stop") then
+		sound.stop("#music")
+		return
+	end
+
+	if message_id == hash("fade_out") then
+		go.animate("#music", "gain", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 1, 0)
+	end
+	
+end

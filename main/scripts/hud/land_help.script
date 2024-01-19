@@ -1,0 +1,52 @@
+go.property("slot_id", 0)
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("slot") then
+		self.slot_id = message.slot
+		return
+	end
+	
+	if message_id == hash("click") then
+		if help_on then
+			select_land_help(self)
+		end
+	end
+
+end
+
+function select_land_help(self)
+
+	local m = ""
+	
+	if self.slot_id == 9 then
+		m = "Humm... It's a pretty ingenious device, ain't it? There's a key in there!"
+	elseif self.slot_id == 10 then
+		m = "Humm... It's a pretty ingenious device, ain't it? There's a padlock in there!"
+	else
+		if level < self.slot_id - 1 then
+			m = "It's a terrain, but I can't see clearly what's in there."
+		else
+			if self.slot_id == 1 then
+				m = "Those are the wastelands of the King of Spades."
+			elseif self.slot_id == 2 then
+				m = "Those are the flower fields of the Queen of Spades."
+			elseif self.slot_id == 3 then
+				m = "Those are the icy cliffs of the King of Diamonds."
+			elseif self.slot_id == 4 then
+				m = "Those are the sand dunes of the Queen of Diamonds."
+			elseif self.slot_id == 5 then
+				m = "Those are the green hills of the King of Clubs."
+			elseif self.slot_id == 6 then
+				m = "That's the oasis of the Queen of Clubs."
+			elseif self.slot_id == 7 then
+				m = "Those are the woods of the King of Hearts."
+			elseif self.slot_id == 8 then
+				m = "Those are the swamps of the Queen of Hearts."
+			end
+		end
+	end
+
+	msg.post("/help", "message", { text = m } )
+	
+end

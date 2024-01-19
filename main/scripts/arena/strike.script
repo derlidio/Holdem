@@ -1,0 +1,119 @@
+go.property("type", 1)
+go.property("sf", vmath.vector3()) -- strike from
+go.property("st", vmath.vector3()) -- strike to (target)
+
+go.property("duration", 0)
+go.property("striking", false)
+go.property("fading", false)
+
+go.property("target_slot", 0)
+go.property("target_type", 0)
+
+go.property("follow", 0)
+
+function init(self)
+
+	self.sf.z = 0.8
+	self.st.z = 0.8
+
+	go.set(".", "position", self.sf)
+
+	local x = self.sf.x - self.st.x
+	local y = self.sf.y - self.st.y
+
+	local a = math.deg(math.atan2(y, x)) + 180
+
+	local d = math.sqrt( math.pow(self.st.x - self.sf.x,2) + math.pow(self.st.y - self.sf.y, 2))
+
+	go.set(".", "euler.z", a)
+	go.set(".", "scale.x", d/512)
+	go.set("#lightning", "tint.w", 1)
+	msg.post(".", "enable")
+
+	sprite.play_flipbook("#lightning", hash("strike"))
+
+	local shock = 0
+	
+	if self.type == STRIKE_MAGIC then
+		snd_play("/sound_fx#magic")
+	elseif self.type == STRIKE_SHOCK then
+		shock = math.random(1, 3)
+		snd_play("/sound_fx#shock_" .. shock)
+	else
+		snd_play("/sound_fx#lightning")
+	end
+
+	if self.target_slot ~= 0 then
+		if self.target_type == HAND_SLOT then
+			self.follow = hand_slots[self.target_slot].card
+		else
+			self.follow = table_slots[self.target_slot].card
+		end
+	end
+	
+	self.striking = true
+	
+end
+
+function final(self)
+
+	if self.follow ~= 0 then
+		msg.post(self.follow, "unfollow")
+	end
+	
+end
+
+function update(self, dt)
+
+	if self.striking == true then
+
+		if self.follow ~= 0 then
+
+			if self.follow ~= 0 then
+				
+				t = go.get(self.follow, "position")
+				
+				local x = self.sf.x - t.x
+				local y = self.sf.y - t.y
+
+				local a = math.deg(math.atan2(y, x)) + 180
+				local d = math.sqrt( math.pow(t.x - self.sf.x,2) + math.pow(t.y - self.sf.y, 2))
+
+				go.set(".", "euler.z", a)
+				go.set(".", "scale.x", d/512)
+				
+			end
+
+		end
+
+		if not self.fading then
+
+			if self.duration > 0 then
+				
+				self.duration = self.duration - dt
+
+				if self.duration < 0 then
+					self.duration = 0
+					self.fading = true
+					go.animate("#lightning", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1,1,1,0), go.EASING_LINEAR, 0.25, 0, strike_done)
+				end
+				
+			end
+		end
+	end
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("unfollow") then
+		self.follow = 0
+	end
+	
+end
+
+function strike_done(self, url, property)
+	self.striking = false
+	self.fading = false
+	go.delete()
+end

@@ -1,0 +1,51 @@
+go.property("initial_scale", vmath.vector3())
+
+function init(self)
+
+	self.initial_scale = go.get(".", "scale")
+	
+	msg.post(".", "disable")
+	msg.post("/auto_load_no", "disable")
+	msg.post("/auto_load_yes", "disable")
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("show") then
+
+		if no_auto_saved_file() then 
+			auto_load = true
+			return 
+		end
+
+		particlefx.play("/feather#feather_ink")
+		
+		go.set("/auto_load", "scale", vmath.vector3(0,0,0))
+		go.animate("/auto_load", "scale", go.PLAYBACK_ONCE_FORWARD, self.initial_scale, go.EASING_OUTBOUNCE, 0.25)
+
+		msg.post("/auto_load", "enable")
+		msg.post("/auto_load_no", "enable")
+		msg.post("/auto_load_yes", "enable")
+
+		snd_play("/sound_fx#question")
+
+		disable_gui = true
+
+	end
+
+end
+
+function no_auto_saved_file()
+
+	local file_path = sys.get_save_file("Holdem", "holdem.auto.dat")
+
+	local j = sys.load(file_path) -- the json file
+
+	if table.maxn(j) == 0 then
+		return true -- No auto-saved file exists.
+	else
+		return false -- Something is there. Let's ask the player if it should be loaded.
+	end
+
+end

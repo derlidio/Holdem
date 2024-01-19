@@ -1,0 +1,28 @@
+go.property("time", 0)
+
+function init(self)
+	snd_play("/sound_fx#screen_crack")
+	self.time = 0.5
+	msg.post("/wait", "show")
+	msg.post("/help", "haste")
+end
+
+function update(self, dt)
+	
+	if self.time > 0 then
+		
+		self.time = self.time - dt
+		
+		if self.time < 0 then
+			self.time = 0
+			go.animate("#crack", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1,1,1,0), go.EASING_LINEAR, 0.5, 0, crack_done)
+		end
+		
+	end
+	
+end
+
+function crack_done(self, url, property)
+	crack_active = false
+	go.delete()
+end

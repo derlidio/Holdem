@@ -1,0 +1,12 @@
+function init(self)
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1.25, 1.25, 1.25), go.EASING_LINEAR, 1, 5)
+	go.animate("#logo", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 1, 5, delete_intro)
+end
+
+function delete_intro(self, url, property)
+
+	intro = false
+	start_game()
+	go.delete()
+	
+end

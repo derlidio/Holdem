@@ -1,0 +1,119 @@
+function init(self)
+
+	gui.set_size(gui.get_node("top"), vmath.vector3(0, 0, 0))
+	gui.set_size(gui.get_node("bottom"), vmath.vector3(0, 0, 0))
+	
+	gui.set_size(gui.get_node("left"), vmath.vector3(0, 0, 0))
+	gui.set_size(gui.get_node("right"), vmath.vector3(0, 0, 0))
+
+	window.set_listener(window_changed)
+
+	window_changed(self, window.WINDOW_EVENT_RESIZED, nil)
+	
+end
+
+--[[
+function update(self, dt)
+
+	---------------------------------------------------------------------------
+	-- 0.5625 is our magic number. It's the ratio for 16:9 screen resolution --
+	---------------------------------------------------------------------------
+	
+	local s = gui.get_screen_position(gui.get_node("screen"))
+
+	if (screen_w ~= s.x) or (screen_h ~= s.y) then -- screen dimensions changed
+
+		screen_w = s.x
+		screen_h = s.y
+		
+		screen_rx = ORIGINAL_SCREEN_W / screen_w
+		screen_ry = ORIGINAL_SCREEN_H / screen_h
+
+		local gap_h = (screen_h * screen_rx - ORIGINAL_SCREEN_H) / 2
+		local gap_w = (screen_w * screen_ry - ORIGINAL_SCREEN_W) / 2
+		local ratio = ORIGINAL_SCREEN_H / ORIGINAL_SCREEN_W
+
+		if screen_h / screen_w ~= ratio then
+
+			if screen_h / screen_w > ratio then
+
+				screen_gy = gap_h
+				screen_gx = 0
+				
+				screen_fw = screen_w
+				screen_fh = screen_w * 0.5625
+
+				gui.set_size(gui.get_node("top"), vmath.vector3(ORIGINAL_SCREEN_W, gap_h, 0))
+				gui.set_size(gui.get_node("bottom"), vmath.vector3(ORIGINAL_SCREEN_W, gap_h, 0))
+				
+				gui.set_size(gui.get_node("left"), vmath.vector3(0, 0, 0))
+				gui.set_size(gui.get_node("right"), vmath.vector3(0, 0, 0))
+				
+			else
+
+				screen_gy = 0
+				screen_gx = gap_w
+				
+				screen_fw = screen_h * 0.5625
+				screen_fh = screen_h
+				
+				gui.set_size(gui.get_node("top"), vmath.vector3(0, 0, 0))
+				gui.set_size(gui.get_node("bottom"), vmath.vector3(0, 0, 0))
+				
+				gui.set_size(gui.get_node("left"), vmath.vector3(gap_w, ORIGINAL_SCREEN_H, 0))
+				gui.set_size(gui.get_node("right"), vmath.vector3(gap_w, ORIGINAL_SCREEN_H, 0))
+				
+			end
+			
+		end	
+	end
+
+end
+--]]
+
+function window_changed(self, event, data)
+	
+	if event == window.WINDOW_EVENT_RESIZED then
+
+		local w,h = window.get_size()
+
+		local screen_rx = ORIGINAL_SCREEN_W / w  -- action.x returns actual screen coordinates multiplied by this factor.
+		local screen_ry = ORIGINAL_SCREEN_H / h -- action.y returns actual screen coordinates multiplied by this factor.
+		
+		local gap_h = (h * screen_rx - ORIGINAL_SCREEN_H) / 2 -- the size of each gap in Y axis
+		local gap_w = (w * screen_ry - ORIGINAL_SCREEN_W) / 2 -- the size of each gap in X axis
+		
+		local original_ratio = ORIGINAL_SCREEN_H / ORIGINAL_SCREEN_W -- the original screen ratio, according to project settings (must be equal to the values there)
+		local current_ratio = h / w -- the current screen ratio according to screen or window dimensions
+		
+		if current_ratio ~= original_ratio then
+
+			if current_ratio > original_ratio then -- we have gaps at top and bottom
+
+				screen_gy = gap_h
+				screen_gx = 0
+
+				gui.set_size(gui.get_node("top"), vmath.vector3(ORIGINAL_SCREEN_W, gap_h, 0))
+				gui.set_size(gui.get_node("bottom"), vmath.vector3(ORIGINAL_SCREEN_W, gap_h, 0))
+
+				gui.set_size(gui.get_node("left"), vmath.vector3(0, 0, 0))
+				gui.set_size(gui.get_node("right"), vmath.vector3(0, 0, 0))
+
+			else -- we have gaps at left and right
+
+				screen_gy = 0
+				screen_gx = gap_w
+
+				gui.set_size(gui.get_node("top"), vmath.vector3(0, 0, 0))
+				gui.set_size(gui.get_node("bottom"), vmath.vector3(0, 0, 0))
+
+				gui.set_size(gui.get_node("left"), vmath.vector3(gap_w, ORIGINAL_SCREEN_H, 0))
+				gui.set_size(gui.get_node("right"), vmath.vector3(gap_w, ORIGINAL_SCREEN_H, 0))
+
+			end
+
+		end	
+		
+	end
+	
+end

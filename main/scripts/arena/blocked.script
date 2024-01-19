@@ -1,0 +1,24 @@
+local playing = false
+
+function init(self)
+
+	if not playing then
+		playing = true
+		go.set(".", "position", lt)
+		snd_play("/card_fx#locked")
+		particlefx.play("#locked", emitter_state_change)
+	else
+		go.delete()
+	end
+	
+end
+
+function emitter_state_change(self, id, emitter, state)
+	
+	if state == particlefx.EMITTER_STATE_POSTSPAWN then
+		playing = false
+		particlefx.stop("#locked")
+		go.delete()
+	end
+	
+end

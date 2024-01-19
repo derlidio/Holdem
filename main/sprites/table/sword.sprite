@@ -1,0 +1,4 @@
+tile_set: "/main/atlases/swords.atlas"
+default_animation: "Sword_1"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

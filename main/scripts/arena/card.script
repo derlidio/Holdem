@@ -1,0 +1,838 @@
+go.property("deck", 0)
+go.property("suit",0)
+go.property("rank",0)
+go.property("ice", false)
+go.property("old", false)
+go.property("ghost", false)
+go.property("locked", false)
+go.property("slot_type", 0)
+go.property("slot_number", 0)
+go.property("last_position", vmath.vector3())
+go.property("killing", false)
+go.property("unicing", false)
+go.property("bouncing", false)
+go.property("shaking", false)
+go.property("shaking_duration", 0)
+go.property("self_destroy", false)
+go.property("showing_hint", false)
+go.property("bolt", 0)
+go.property("protected", false)
+go.property("playing", false)
+go.property("playing_delay", 0)
+
+local GHOST_ALPHA = 0.6
+
+function init(self)
+	
+	msg.post("#balloon", "disable")
+	msg.post("#label", "disable")
+	
+	sprite.play_flipbook( "#rank", hash("rank_" .. self.rank) )
+
+	if self.suit ~= 0 then
+		if self.suit == 1 or self.suit == 2 then
+			go.set("#suit", "tint", vmath.vector4(1, 0, 0, 1))
+		else
+			go.set("#suit", "tint", vmath.vector4(0.25, 0.25, 1, 1))
+		end
+	else
+		if hint_wildcard == false and not hint_playing then
+			hint_wildcard = true
+			self.protected = true -- Protect this card from contender attacks, allowing it to show the hint.
+			show_card_hint(self, "This is a wildcard! Use it in place of any card you need to complete your hand.")
+		end
+	end
+
+	if self.ghost then
+		go.set("#suit", "tint.w", GHOST_ALPHA)
+		go.set("#rank", "tint.w", GHOST_ALPHA)
+	end
+	
+	if self.slot_type == TABLE_SLOT then
+		msg.post("#hand", "disable")
+	else
+		msg.post("#table", "disable")
+	end
+
+	if self.locked == false then
+		msg.post("#padlock", "disable")
+	else
+		if hint_locked == false and not hint_playing then
+			hint_locked = true
+			self.protected = true
+			show_card_hint(self, "This card is under a lock! Magic can't affect locked cards.")
+		end		
+	end
+	
+	if self.old == false then 
+		msg.post("#old", "disable")
+	else
+		sprite.play_flipbook("#old", hash("deal"))
+	end
+	
+	if self.ice == false then 
+		msg.post("#ice", "disable") 
+	else 
+		sprite.play_flipbook("#ice", hash("deal"))
+		particlefx.play("#ice_fog") 
+	end
+
+	self.shaking = self.self_destroy
+
+end
+
+function final(self)
+	if self.bolt ~= 0 then
+		msg.post(self.bolt, "unfollow")
+	end
+	if self.showing_hint then
+		hint_playing = false -- If the card is deleted while showing hint, things may go wrong if we do not release this flag...
+	end
+end
+
+function update(self, dt)
+
+	if self.shaking == true and self.showing_hint == false then
+
+		local p = vmath.vector3()
+		
+		local ox = math.random(-2,2) -- offset on x axis
+		local oy = math.random(-2,2) -- offset on y axis
+
+		p.x = self.last_position.x
+		p.y = self.last_position.y
+		p.z = self.last_position.z
+
+		p.x = p.x + ox
+		p.y = p.y + oy
+
+		go.set(".", "position", p)
+
+		if self.killing or self.unicing or self.bouncing then
+			
+			if self.shaking_duration > 0 then
+				
+				self.shaking_duration = self.shaking_duration - dt
+				
+				if self.shaking_duration < 0 then
+					
+					self.shaking_duration = 0
+
+					if not self.self_destroy then self.shaking = false end
+					
+					if self.killing then 
+						kill_card(self) 
+					elseif self.unicing then 
+						unice_card(self)
+					elseif self.bouncing then 
+						self.bouncing = false
+						if self.locked then
+							if hint_magic_bounce == false and not hint_playing then
+								hint_magic_bounce = true
+								show_card_hint(self, "Locked cards are immune to magic! Try to use this in your favor.")
+							end
+						else
+							if hint_magic_type == false and not hint_playing then
+								hint_magic_type = true
+								show_card_hint(self, "This card can't be affected by that type of magic!")
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	if self.playing then
+		if self.playing_delay > 0 then
+			self.playing_delay = self.playing_delay - dt
+			if self.playing_delay < 0 then
+				self.playing_delay = 0
+				self.playing = false
+				go.animate(".", "position.y", go.PLAYBACK_ONCE_PINGPONG, self.last_position.y + 16, go.EASING_INOUTSINE, 1)
+			end
+		end		
+	end
+		
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	self.playing = false
+	
+	if message_id == hash("pick") then
+
+		if help_on then
+			show_card_help_message(self)
+			return
+		end
+		
+		-- If there is a magic selected, then apply the magic power to the card and leave
+		
+		if magic_selected ~= 0 then apply_magic(self); return; end
+
+		-- If the card is on the table, then it must go to the next available hand slot
+		
+		if self.slot_type == TABLE_SLOT then
+			
+			for slot = 1, 5 do
+				
+				if hand_slots[slot].used == false then
+					
+					table_slots[self.slot_number].used = false
+					table_slots[self.slot_number].rank = 0
+					table_slots[self.slot_number].suit = 0
+					
+					round_picking = true
+					hand_slots[slot].used = true
+					
+					self.slot_type = HAND_SLOT
+					self.slot_number = slot
+
+					sprite.play_flipbook("#suit", hash("flip"))
+					if self.ice == true then sprite.play_flipbook("#ice",  hash("flip")) end
+					if self.old == true then sprite.play_flipbook("#old",  hash("flip")) end
+					
+					local t = go.get_position("/slot_" .. slot .. "#slot")
+					go.set(".", "position.z", 0)
+					go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, picked)
+					snd_play("/card_fx#pick")
+					
+					msg.post("#hand", "enable")
+					msg.post("#table", "disable")
+
+					if slot == 5 then
+						msg.post("/pump/heart_engine", "stop") -- If the pump is active, stop it.
+					end
+					
+					break
+					
+				end
+			end
+			
+		end
+
+		return
+			
+	end
+
+	if message_id == hash("slot") then
+
+		if self.slot_number > message.slot then
+			sprite.play_flipbook("#suit", hash("flop"))
+			if self.ice == true then sprite.play_flipbook("#ice",  hash("flop")) end
+			if self.old == true then sprite.play_flipbook("#old",  hash("flop")) end
+		else
+			sprite.play_flipbook("#suit", hash("flip"))
+			if self.ice == true then sprite.play_flipbook("#ice",  hash("flip")) end
+			if self.old == true then sprite.play_flipbook("#old",  hash("flip")) end
+		end
+
+		self.slot_number = message.slot
+		local t = go.get_position("/slot_" .. message.slot .. "#slot")
+		go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.35, 0, swap_finished)
+
+		if round_sorting then
+			snd_play("/card_fx#swap")
+		else
+			snd_play("/card_fx#shift")
+		end
+		
+		return
+		
+	end
+
+	if message_id == hash("tip") then
+		if self.rank ~= 0 then
+			go.animate("#rank", "tint", go.PLAYBACK_ONCE_PINGPONG, vmath.vector4(1, 1, 0.7, 1), go.EASING_INOUTSINE, 1)
+		end
+		factory.create("/table#flare_1", self.last_position)
+		factory.create("/table#flare_2", self.last_position)
+		return
+	end
+
+	if message_id == hash("ace") then
+		
+		if self.rank == 14 or self.rank == 1 then
+			if self.rank == 14 then
+				self.rank = 1
+			else
+				self.rank = 14
+			end
+		end
+		
+		if self.slot_type == HAND_SLOT then
+			hand_slots[self.slot_number].rank = self.rank
+		else
+			table_slots[self.slot_number].rank = self.rank
+		end
+		round_sorting = true
+		return
+	end
+	
+	if message_id == hash("sublime") then
+		
+		if self.rank == 0 then 
+			snd_play("/card_fx#change")
+		else
+			snd_play("/card_fx#sublime")
+		end
+		
+		particlefx.play("#sublime_"..self.suit)
+		
+		go.animate("#suit", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0, sublimed)
+		go.animate("#rank", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0)
+		
+		if self.locked == true then
+			go.animate("#padlock", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1,1,1,0), go.EASING_LINEAR, 0.5, 0)
+		end
+		return
+	end
+
+	if message_id == hash("old") then
+		
+		if self.old == false then 
+			
+			self.old = true
+
+			snd_play("/card_fx#crack") 
+			
+			msg.post("#old", "enable")
+			go.set("#old", "tint", vmath.vector4(1,1,1,0))
+			go.animate("#old", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1,1,1,1), go.EASING_LINEAR, 0.5, 0)
+			
+			if hint_old == false and not hint_playing then
+				hint_old = true
+				self.protected = true
+				show_card_hint(self, "Cards from the previous deck have become old. They'll self-destruct if not used soon!")
+			end
+		end
+		return
+	end
+
+	if message_id == hash("self_destroy") then
+		self.self_destroy = true
+		self.shaking = true
+		if hint_destroy == false and not hint_playing then
+			hint_destroy = true
+			self.protected = true
+			show_card_hint(self, "Shivering old cards will self-destruct if not used on this round!")
+		end
+		return
+	end
+
+	if message_id == hash("position") then
+		self.last_position = go.get(".", "position")
+		check_unstable(self)
+		return
+	end
+
+	if message_id == hash("unfollow") then
+		self.bolt = 0
+		return
+	end
+
+	if message_id == hash("play") then
+		self.playing = true
+		self.playing_delay = 0.1 * self.slot_number
+		return
+	end
+
+	if message_id == hash("leave") then
+		if self.slot_type == HAND_SLOT then
+			hand_slots[self.slot_number].solving = true
+			go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(640, 800, 0), go.EASING_LINEAR, 0.5, 0, card_leaved)
+			go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1.5, 1.5, 1), go.EASING_LINEAR, 0.5)
+			go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, 180, go.EASING_LINEAR, 0.5)
+		end
+	end
+	
+end
+
+function card_leaved(self, url, property)
+
+	hand_slots[self.slot_number].rank = 0
+	hand_slots[self.slot_number].suit = 0
+	hand_slots[self.slot_number].used = false
+	hand_slots[self.slot_number].solving = false
+
+	go.delete()
+
+end
+
+function check_unstable(self)
+
+	if self.slot_type == HAND_SLOT then
+		
+		if hand_slots[self.slot_number].unstable then
+
+			msg.post("/magic_" .. hand_slots[self.slot_number].magic .. "/button#magic", "unstable", {state = false, target = 0} ) -- Turn the slot off.
+
+			magic_selected = hand_slots[self.slot_number].magic
+
+			hand_slots[self.slot_number].unstable = false
+			hand_slots[self.slot_number].magic = 0
+
+			apply_magic(self)
+
+			magic_selected = 0 -- Assure it doesn't get stuck!
+
+			round_animating = true
+			
+			round_delay = 1
+
+		end
+		
+	end
+
+end
+
+function picked(self, url, property)
+
+	snd_play("/card_fx#place")
+	
+	self.last_position = go.get(".", "position")
+	
+	local slot = self.slot_number -- go.get(id, "slot_number")
+
+	hand_slots[slot].card = go.get_id()
+	hand_slots[slot].rank = self.rank --go.get(id, "rank")
+	hand_slots[slot].suit = self.suit --go.get(id, "suit")
+
+	-- The card just landed this slot. If it's unstable, then we must apply the corresponding magic!
+
+	check_unstable(self)
+	
+	round_picking = false
+	round_sorting = true
+	
+end
+
+function unpicked(self, url, property)
+	
+	self.last_position = go.get(".", "position")
+
+	local slot = self.slot_number
+	
+	table_slots[slot].card = go.get_id()
+	table_slots[slot].rank = self.rank --go.get(id, "rank")
+	table_slots[slot].suit = self.suit --go.get(id, "suit")
+
+	round_picking = false
+	round_sorting = true
+	
+end
+
+function sublimed(self, url, property)
+
+	if self.rank ~= 0 and self.ice == false then -- If we are NOT subliming a wildcard or iced card, then we must reset the slot.
+		hand_slots[self.slot_number].card = 0
+		hand_slots[self.slot_number].suit = 0
+		hand_slots[self.slot_number].rank = 0
+		hand_slots[self.slot_number].used = false
+	end
+
+	hand_slots[self.slot_number].solving = false
+	
+	if self.ice == false or self.rank == 0 then 
+		go.delete() 
+	else
+		local alpha = 1
+
+		if self.ghost then alpha = GHOST_ALPHA end
+
+		go.animate("#suit", "tint.w", go.PLAYBACK_ONCE_FORWARD, alpha, go.EASING_LINEAR, 0.25)
+		go.animate("#rank", "tint.w", go.PLAYBACK_ONCE_FORWARD, alpha, go.EASING_LINEAR, 0.25)
+		
+	end
+
+end
+
+function swap_finished(self, url, property)
+	self.last_position = go.get(".", "position")
+	hand_slots[self.slot_number].solving = false
+end
+
+function apply_magic(self)
+
+	if not round_cleaning then -- strike the lightning
+		
+		local sf = vmath.vector3() -- strike from
+		local st = vmath.vector3() -- strike to
+
+		if  go.get("/magic_" .. magic_selected .. "/button#magic", "active") == false then
+			sf = go.get_world_position("/hud/shield")
+			msg.post("/hud/shield", "grow", { sound = true } )
+		else
+			sf = go.get("/magic_" .. magic_selected .. "/magic_slot", "position")
+		end
+		
+		if self.slot_type == HAND_SLOT then
+			st = go.get_position("/slot_" .. self.slot_number .. "#slot")
+		else
+			st = go.get_position("/table")
+			st.x = st.x + table_slots[self.slot_number].ox
+			st.y = st.y + table_slots[self.slot_number].oy
+		end
+
+		self.bolt = factory.create("/table#bolt", sf, nil , { sf = sf, st = st , duration = 0.25, target_slot = self.slot_number, target_type = self.slot_type } )
+		
+	end
+
+	if 	(self.locked and magic_selected ~= 9) or 
+		(magic_selected == 9 and not self.locked) or
+		(magic_selected == 10 and self.locked) or
+		(self.ghost and magic_selected == 6 ) or 
+		(self.rank == 0 and (magic_selected == 5 or magic_selected == 7 or magic_selected == 8) )
+		
+		then
+
+		if not round_cleaning then -- Magic (specially kill) may be applied on round cleaning.
+
+			snd_play("card_fx#locked")
+			particlefx.play("#locked")
+
+			self.bouncing = true
+			self.shaking = true
+			self.shaking_duration = 0.5
+
+			if round_attacking then -- If an enemy attack failed, clear the selected magic.
+				round_attacking = false
+				magic_selected = 0
+			end
+
+			return
+		end
+		
+	end
+
+	-- If this is an enemy attack, then it'll be cleared on the main script at clear_attack() function.
+
+	if self.slot_type == HAND_SLOT then cancel_tip = true end
+	
+	msg.post("/magic_" .. magic_selected .. "/button#magic", "use", { type = self.slot_type, slot = self.slot_number })
+	
+	if magic_selected == 1 then -- kill card
+
+		snd_play("card_fx#shake")
+		
+		self.shaking_duration = 0.25
+		self.shaking = true
+
+		msg.post("#old", "enable")
+				
+		if self.ice == true then
+			particlefx.play("#unice")
+			self.unicing = true
+		else
+			msg.post("/hud/meter_L",     "hit", { points = (self.rank / 100) } )
+			msg.post("/hud/life_player", "hit", { points = (self.rank / 100) } )
+			msg.post("/hud/life_enemy",  "sum", { points = (self.rank / 100) } )
+			particlefx.play("#kill")
+			self.killing = true
+		end
+		magic_selected = 0
+		return
+	end
+
+	if magic_selected == 2 then -- draw card
+		msg.post("/table#main", "deal")
+		magic_selected = 0
+		return
+	end
+
+	if magic_selected == 3 then -- freeze card
+		if self.ice == false then
+			self.ice = true
+			msg.post("#ice", "enable")
+			go.set("#ice","tint.w", 0)
+			go.animate("#ice", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5)
+			particlefx.play("#ice_fog")
+		end
+		snd_play("/card_fx#ice")
+		magic_selected = 0
+		return
+	end
+
+	if magic_selected == 4 then -- unpick card (back to table)
+
+		magic_selected = 0
+		
+		if self.slot_type == HAND_SLOT then
+			
+			for slot = 1, 8 do
+
+				if table_slots[slot].used == false then
+
+					hand_slots[self.slot_number].used = false
+					hand_slots[self.slot_number].rank = 0
+					hand_slots[self.slot_number].suit = 0
+					
+					table_slots[slot].used = true
+					
+					self.slot_type = TABLE_SLOT
+					self.slot_number = slot
+
+					sprite.play_flipbook("#suit", hash("flip"))
+					if self.ice == true then sprite.play_flipbook("#ice",  hash("flip")) end
+					if self.old == true then sprite.play_flipbook("#old",  hash("flip")) end
+					
+					local t = go.get_position("/table#table")
+					t.x = t.x + table_slots[slot].ox
+					t.y = t.y + table_slots[slot].oy
+					go.set(".", "position.z", 0)
+					go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, t, go.EASING_LINEAR, 0.5, 0, unpicked)
+
+					msg.post("#hand", "disable")
+					msg.post("#table", "enable")
+					closing_gaps = true
+					break
+				end
+			end
+		else
+			msg.post(".", "pick")
+		end
+		return
+	end
+
+	if magic_selected == 5 then -- swap suit (same color)
+		if self.rank ~= 0 then
+			msg.post("/table#main", "suit", { type = self.slot_type, slot = self.slot_number } )
+		end
+		magic_selected = 0
+		return
+	end
+
+	if magic_selected == 6 then -- clone card
+		msg.post("/table#main", "clone", { type = self.slot_type, slot = self.slot_number } )
+		magic_selected = 0
+		return
+	end
+
+	if magic_selected == 7 then -- rank up
+
+		if self.rank ~= 0 then 
+			if self.rank == 14 then
+				self.rank = 2
+			else
+				self.rank = self.rank + 1
+			end
+			
+			if self.slot_type == HAND_SLOT then
+				hand_slots[self.slot_number].rank = self.rank
+			else
+				table_slots[self.slot_number].rank = self.rank
+			end
+			
+			sprite.play_flipbook( "#rank", hash("rank_" .. self.rank) )
+			magic_selected = 0
+			round_sorting = true
+		end
+		return
+	end
+
+	if magic_selected == 8 then -- rank down
+
+		if self.rank ~= 0 then
+			if self.rank == 2 or self.rank == 1 then
+				self.rank = 14
+			else
+				self.rank = self.rank -1
+			end
+
+			if self.slot_type == HAND_SLOT then
+				hand_slots[self.slot_number].rank = self.rank
+			else
+				table_slots[self.slot_number].rank = self.rank
+			end
+			
+			sprite.play_flipbook( "#rank", hash("rank_" .. self.rank) )
+			magic_selected = 0
+			round_sorting = true
+		end
+		return
+	end
+
+	if magic_selected == 9 then -- unlock card
+		self.locked = false
+		msg.post("#padlock", "disable")
+		magic_selected = 0
+		return
+	end
+
+	if magic_selected == 10 then -- unlock card
+		self.locked = true
+		msg.post("#padlock", "enable")
+		magic_selected = 0
+	end
+	
+end
+
+function kill_card(self)
+
+	local p = go.get(".", "position")
+
+	p.z = 1
+
+	factory.create("/table#percent", p, nil , { value = self.rank } )
+	
+	snd_play("/card_fx#destroy")
+	
+	if self.slot_type == HAND_SLOT then
+		hand_slots[self.slot_number].card = 0
+		hand_slots[self.slot_number].rank = 0
+		hand_slots[self.slot_number].suit = 0
+		hand_slots[self.slot_number].used = false
+	else
+		table_slots[self.slot_number].card = 0
+		table_slots[self.slot_number].rank = 0
+		table_slots[self.slot_number].suit = 0
+		table_slots[self.slot_number].used = false
+	end
+
+	if self.suit ~= 0 then
+		if self.suit == 1 or self.suit == 2 then
+			particlefx.set_constant("#kill", "debris", "tint", vmath.vector4(1, 0, 0, 1))
+		else
+			particlefx.set_constant("#kill", "debris", "tint", vmath.vector4(0.25, 0.25, 1, 1))
+		end
+	else
+		particlefx.set_constant("#kill", "debris", "tint", vmath.vector4(1, 1, 0, 1))
+	end
+
+	score = score - self.rank
+
+	if score < 0 then score = 0 end
+		
+	if self.slot_type == HAND_SLOT then 
+		hand_slots[self.slot_number].solving = false
+		closing_gaps = true
+	else
+		table_slots[self.slot_number].solving = false
+	end
+
+	go.delete()
+	
+end
+
+function unice_card(self)
+
+	snd_play("/card_fx#unice")
+	
+	self.ice = false
+	self.unicing = false
+	self.shaking_duration = 0
+
+	go.set_position(self.last_position)
+	
+	msg.post("#ice", "disable")
+	particlefx.stop("#ice_fog")	
+
+	if not self.old then msg.post("#old", "disable") end
+
+	if self.slot_type == HAND_SLOT then 
+		hand_slots[self.slot_number].solving = false
+		if round_cleaning then hand_slots[self.slot_number].skip = true end
+	else
+		table_slots[self.slot_number].solving = false
+		if round_cleaning then table_slots[self.slot_number].skip = true end
+	end	
+		
+end
+
+function show_card_hint(self, message)
+
+	if not opt_info and not help_on then return end
+
+	hint_playing = true
+		
+	self.showing_hint = true
+	
+	label.set_text("#label", message)
+	
+	go.set("#balloon", "tint.w", 0); msg.post("#balloon", "enable")
+	go.set("#label",  "color.w", 0); msg.post("#label",   "enable")
+		
+	go.animate("#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5)
+	go.animate("#label", "color.w",  go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 0, hide_card_hint)
+	
+end
+
+function hide_card_hint(self, url, property)
+	
+	go.animate("#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 5)
+	go.animate("#label","color.w",  go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 5, disable_card_hint)
+
+end
+
+function disable_card_hint(self, url, property)
+
+	self.showing_hint = false
+	
+	msg.post("#balloon", "disable")
+	msg.post("#label", "disable")
+
+	hint_playing = false
+
+end
+
+function show_card_help_message(self)
+
+	local m = ""
+	local r = ""
+	local s = ""
+
+	if self.rank == 14 then
+		r = "Ace"
+	elseif self.rank == 13 then
+		r = "King"
+	elseif self.rank == 12 then
+		r = "Queen"
+	elseif self.rank == 11 then
+		r = "Jack"
+	elseif self.rank == 0 then
+		r = "Wildcard"
+	else
+		r = tostring(self.rank)
+	end
+
+	if self.suit == 1 then
+		s = "Diamonds"
+	elseif self.suit == 2 then
+		s = "Hearts" 
+	elseif self.suit == 3 then
+		s = "Clubs"
+	elseif self.suit == 4 then
+		s = "Spades"
+	end
+
+	if self.self_destroy then 
+		m = "I feel like I'm about to explode!"
+	elseif self.ice then
+		m = "It's a little bit cold in here, ain't it?"
+	elseif self.ghost then
+		m = "If you call me Dolly, we'll have an argument!"
+	elseif self.locked then
+		m = "I'm protected from magic! Wooo hooo!"
+	elseif self.old then
+		m = "I'm feeling a little bit rusty!"
+	else
+		if self.rank == 0 then
+			m = "I'll turn into any card you need!"
+		else
+			m = "I'm just some regular card waiting to be played!"
+		end
+	end
+
+	if self.rank == 0 then
+		m = "Hi! I'm a " .. r .. ". " .. m
+	else
+		m = "Hi! I'm a " .. r .. " of " .. s .. ". " .. m
+	end
+
+	show_card_hint(self, m)
+
+	msg.post("/help", "hide")
+
+end

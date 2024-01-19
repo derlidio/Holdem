@@ -1,0 +1,59 @@
+function init(self)
+
+	msg.post("#chest_base", "disable")
+	msg.post("#chest_lid", "disable")
+	msg.post("#chest_front", "disable")
+	msg.post("#shine", "disable")
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("spin") then
+		sprite.play_flipbook("#chest_full", hash("spin"), chest_still)
+		return
+	end
+
+	if message_id == hash("open") then
+
+		msg.post("#chest_full", "disable")
+		
+		msg.post("#chest_base", "enable")
+		msg.post("#chest_lid", "enable")
+		msg.post("#chest_front","enable")
+		msg.post("#shine", "enable")
+
+		sprite.play_flipbook("#chest_lid", hash("open"))
+		particlefx.play("#shine")
+		
+		return
+	end
+
+	if message_id == hash("close") then
+		sprite.play_flipbook("#chest_lid", hash("close"), enable_chest)
+		particlefx.stop("#shine")
+		return
+	end
+
+	if message_id == hash("click") then
+		if help_on then
+			msg.post("/help", "message", { text = "A chest full of powerful gemstones. It opens at the end of each level." } )
+		end
+	end
+	
+end
+
+function chest_still(self, message_id, message, current_tile, id, sender)
+	sprite.play_flipbook("#chest_full", hash("still"))
+end
+
+function enable_chest(self, message_id, message, current_tile, id, sender)
+
+	msg.post("#chest_full", "enable")
+	
+	msg.post("#chest_base", "disable")
+	msg.post("#chest_lid", "disable")
+	msg.post("#chest_front","disable")
+	msg.post("#shine", "disable")
+	
+end

@@ -1,0 +1,25 @@
+local flip = false
+
+function init(self)
+	
+	go.set(".", "scale", vmath.vector3(0,0,1))
+	
+	go.set(".", "position.z", go.get(".", "position.z") + 0.5)
+	go.set(".", "position.x", go.get(".", "position.x") + 4)
+	go.set(".", "position.y", go.get(".", "position.y") + 4)
+
+	local direction = 360 - math.random(0, 60)
+
+	if flip then direction = direction * -1 end
+	
+	flip = not flip
+
+	go.animate("#sprite", "tint", go.PLAYBACK_ONCE_PINGPONG, vmath.vector4(1,1,0.8,1), go.EASING_LINEAR, 1)
+	go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, direction, go.EASING_LINEAR, 1)
+	go.animate(".", "scale", go.PLAYBACK_ONCE_PINGPONG, vmath.vector3(1,1,1), go.EASING_INOUTSINE, 1, math.random(0.00, 0.25), delete_flare)
+			
+end
+
+function delete_flare(self, url, property)
+	go.delete()
+end

@@ -1,0 +1,18 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("spin") then
+		go.animate(".", "euler.z", go.PLAYBACK_LOOP_FORWARD, -360, go.EASING_LINEAR, 5)
+		return
+	end
+
+	if message_id == hash("stop") then
+		snd_play("/sound_fx#gears_recoil")
+		go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0, gear_recoil)
+		return
+	end
+
+end
+
+function gear_recoil(self, url, property)
+	snd_play("/sound_fx#gears_click")
+end

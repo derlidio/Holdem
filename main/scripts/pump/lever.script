@@ -1,0 +1,13 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("spin") then
+		sprite.play_flipbook("#lever", hash("spin"))
+		return
+	end
+
+	if message_id == hash("stop") then
+		sprite.play_flipbook("#lever", hash("still"))
+		return
+	end
+		
+end

@@ -1,0 +1,9 @@
+function on_message(self, message_id, message, sender)
+	
+	if message_id == hash("click") then
+		if help_on then
+			msg.post("/help", "message", { text = "That's the table. It's the arena in which you have to contend." } )
+		end
+	end
+	
+end

@@ -1,0 +1,23 @@
+function init(self)
+	
+	go.set("#sprite", "tint.w", 0)
+	msg.post(".", "disable")
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("show") then
+		go.animate("#sprite", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.25, 0, hide_go_msg)
+		msg.post(".", "enable")
+	end
+	
+end
+
+function hide_go_msg(self, url, property)
+	go.animate("#sprite", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.25, 0.5, disable_go_msg)
+end
+
+function disable_go_msg(self, url, property)
+	msg.post(".", "disable")
+end

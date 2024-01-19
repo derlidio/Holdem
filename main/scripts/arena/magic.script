@@ -1,0 +1,488 @@
+go.property("active", false)
+go.property("enabled", false)
+go.property("unstable", false)
+go.property("charges", 0)
+go.property("slot_id", 0)
+go.property("target", 0) -- Target hand slot for unstable behavior.
+go.property("balloon", false)
+go.property("balloon_delta", 3)
+go.property("strike_delta", 0)
+go.property("initial_position", vmath.vector3())
+go.property("land_scale", vmath.vector3())
+go.property("card", vmath.vector3())
+
+local balloon_text = {}
+
+function init(self)
+
+	if go.get_id() == hash("/magic_1/button")  then self.slot_id =  1 end
+	if go.get_id() == hash("/magic_2/button")  then self.slot_id =  2 end
+	if go.get_id() == hash("/magic_3/button")  then self.slot_id =  3 end
+	if go.get_id() == hash("/magic_4/button")  then self.slot_id =  4 end
+	if go.get_id() == hash("/magic_5/button")  then self.slot_id =  5 end
+	if go.get_id() == hash("/magic_6/button")  then self.slot_id =  6 end
+	if go.get_id() == hash("/magic_7/button")  then self.slot_id =  7 end
+	if go.get_id() == hash("/magic_8/button")  then self.slot_id =  8 end
+	if go.get_id() == hash("/magic_9/button")  then self.slot_id =  9 end
+	if go.get_id() == hash("/magic_10/button") then self.slot_id = 10 end
+
+	balloon_text[self.slot_id] = label.get_text("/magic_" .. self.slot_id .. "/balloon#label")
+
+	msg.post("/magic_" .. self.slot_id .. "/land", "slot", { slot = self.slot_id } )
+
+	msg.post("/magic_" .. self.slot_id .. "/balloon", "disable")
+	msg.post("/magic_" .. self.slot_id .. "/magic_slot#magic", "disable")
+	msg.post("/magic_" .. self.slot_id .. "/card#card", "disable")
+
+	go.set("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w", 0)
+
+	if self.slot_id > start then
+		go.set("/magic_" .. self.slot_id .. "/land#tower", "tint.w", 0.25)
+	end
+	
+	if self.slot_id > 8 then
+		msg.post("/magic_" .. self.slot_id .. "/button", "disable")
+		msg.post("/magic_" .. self.slot_id .. "/land", "disable")
+		msg.post("/magic_" .. self.slot_id .. "/magic_slot", "disable")
+	end
+	
+	self.card = go.get("/magic_" .. self.slot_id .. "/card", "position")
+	self.land_scale = go.get("/magic_" .. self.slot_id .. "/land", "scale")
+
+	self.initial_position = go.get(".", "position")
+	
+end
+
+function update(self, dt)
+
+	if self.unstable then
+
+		go.set("/magic_" .. self.slot_id .. "/magic_slot", "position.x", self.initial_position.x + math.random(0, 2) )
+		go.set("/magic_" .. self.slot_id .. "/magic_slot", "position.y", self.initial_position.y + math.random(0, 2) )
+		
+		self.strike_delta = self.strike_delta - dt
+		
+		if self.strike_delta < 0 then
+
+			self.strike_delta = 3
+			
+			local sf = vmath.vector3() -- strike from
+			local st = vmath.vector3() -- strike to
+
+			sf = go.get(".", "position")
+			st = go.get_position("/slot_" .. self.target .. "#slot")
+
+			factory.create("/table#bolt", sf, nil , { sf = sf, st = st, type = STRIKE_SHOCK, duration = 0.25, follow = 0 } )
+			
+			msg.post("/slot_" .. self.target .. "#card_slot", "hit")
+			
+		end
+		
+	end
+
+	if self.active then
+		
+		if not self.balloon and not hint_playing then
+			self.balloon_delta = self.balloon_delta - dt
+			if self.balloon_delta < 0 then
+				self.balloon = true
+				self.balloon_delta = 0
+				show_magic_hint(self, "")
+			end
+		end
+		
+	end
+
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("spin") then
+		sprite.play_flipbook("/magic_".. self.slot_id .."/card#card", hash("spin"), card_still)
+		return
+	end
+	
+	if message_id == hash("select") then
+
+		if help_on then
+			show_magic_help_message(self)
+			return
+		end
+			
+		if self.unstable then return end
+
+		if magic_selected == 0 and self.enabled == true then
+
+			-- No magic is currentlly selected. If we have any charges left, then select this one.
+			
+			if self.charges > 0 then
+
+				snd_play("/magic_".. self.slot_id .."/button#pick")
+				
+				magic_selected = self.slot_id
+				self.charges = self.charges - 1
+				sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("blink_" .. self.charges))
+				go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint.w",  go.PLAYBACK_ONCE_FORWARD, 0.25, go.EASING_LINEAR,0.25)
+				go.animate("/magic_".. self.slot_id .."/land", "scale",  go.PLAYBACK_ONCE_FORWARD, vmath.vector3(self.land_scale.x + 0.1, self.land_scale.y + 0.1, 1), go.EASING_OUTBOUNCE, 0.5)
+				msg.post("/weapon#weapon", "show")
+
+				self.enabled = false
+				
+				if hint_magic_target == false and not hint_playing then
+					hint_magic_target = true
+					show_magic_hint(self, "Select a card to affect or tap the slot again to put the charge back.")
+				end
+				
+			end
+
+		else
+
+			if magic_selected == self.slot_id then
+
+				-- The player is deselecting this magic (putting the charge back). Let's act accordingly.
+								
+				if self.charges < 5 then
+					snd_play("/magic_".. self.slot_id .."/button#pick")
+					self.charges = self.charges + 1
+					sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("charges_" .. self.charges))
+					go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1, 1, 1, 1), go.EASING_LINEAR,0.25)
+					go.animate("/magic_".. self.slot_id .."/land", "scale",  go.PLAYBACK_ONCE_FORWARD, self.land_scale, go.EASING_OUTBOUNCE, 0.5)
+					msg.post("/weapon#weapon", "hide")
+					magic_selected = 0
+					self.enabled = true
+				end
+
+			else
+
+				-- The player is trying to select a new magic while the previous one has not been applied.
+
+				if self.enabled == true then 
+					snd_play("/card_fx#locked")
+					particlefx.play("/magic_".. self.slot_id .."/magic_slot#locked")
+					if hint_magic_back == false and not hint_playing then
+						hint_magic_back = true
+						show_magic_hint(self, "A magic is already selected. Put it's charge back if you want to switch.")
+					end
+				end
+				
+			end
+			
+		end
+		return
+	end
+
+	if message_id == hash("use") and not round_cleaning then
+		sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("charges_" .. self.charges))
+		go.animate("/magic_".. self.slot_id .."/land", "scale",  go.PLAYBACK_ONCE_FORWARD, self.land_scale, go.EASING_OUTBOUNCE, 0.5)
+		msg.post("/weapon#weapon", "hide")
+		return
+	end
+
+	if message_id == hash("activate") then
+		if self.enabled == false then
+			if self.charges > 0 then
+				go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1, 1, 1, 1), go.EASING_LINEAR,0.25)
+				self.enabled = true
+			end
+		end
+		return
+	end
+
+	if message_id == hash("replenish") then
+		if self.charges < 5 then
+			sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("fill_" .. self.charges))
+			self.charges = 5
+		end
+		return
+	end
+
+	if message_id == hash("unstable") then
+
+		self.unstable = message.state
+		
+		if self.unstable then
+			self.target = message.target
+			go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint.w", go.PLAYBACK_LOOP_PINGPONG, 0.5, go.EASING_LINEAR, 0.5)
+		else
+			--go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint",  go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1, 1, 1, 0.25), go.EASING_LINEAR, 0.25)
+			go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint.w",  go.PLAYBACK_ONCE_FORWARD, 0.25, go.EASING_LINEAR, 0.25)
+			self.enabled = false
+		end
+
+		if hint_magic_unstable == false and not hint_playing then
+			hint_magic_unstable = true
+			show_magic_hint(self, "This magic slot has become unstable. The Joker is now playing with you!")
+		end
+		return
+	end
+
+	if message_id == hash("tease") then
+
+		go.set("/magic_".. self.slot_id .."/card#card", "tint.w", 0)
+		msg.post("/magic_".. self.slot_id .."/card#card", "enable")
+		
+		go.animate("/magic_".. self.slot_id .."/card#card", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 2.5)
+		go.animate("/magic_".. self.slot_id .."/land#tower", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 2.5)
+		go.animate("/magic_".. self.slot_id .."/card", "position.y", go.PLAYBACK_LOOP_PINGPONG, self.card.y + 8, go.EASING_INOUTSINE, 3)
+		return
+	end
+	
+	if message_id == hash("conquer") then
+
+		self.balloon = message.skip_balloon
+		
+		self.active = true
+		
+		go.animate("/magic_".. self.slot_id .."/card#card", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.25, 0, disable_card)
+		
+		self.enabled = true
+
+		msg.post("/magic_" .. self.slot_id .. "/magic_slot#magic", "enable")
+		go.set("/magic_".. self.slot_id .."/magic_slot#magic", "tint.w",  0)
+		go.animate("/magic_".. self.slot_id .."/magic_slot#magic", "tint.w",  go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 0.30)
+		sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("fill_0"))
+
+		if self.slot_id > 8 then
+			sprite.play_flipbook("/magic_".. self.slot_id .."/land#tower", hash("spin"))
+		end
+
+		self.charges = 5
+
+		return
+	end
+
+	if message_id == hash("reveal") then
+		
+		go.set("/magic_" .. self.slot_id .. "/land#tower", "tint.w", 0)
+		go.set("/magic_" .. self.slot_id .. "/magic_slot#magic_slot", "tint.w", 0)
+		go.set("/magic_" .. self.slot_id .. "/magic_slot#charges", "tint.w", 0)
+		go.set("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w", 0)
+
+		if message.animate == true then 
+			go.animate("/magic_" .. self.slot_id .. "/land#tower", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0.25, go.EASING_LINEAR, 1)
+			go.animate("/magic_" .. self.slot_id .. "/magic_slot#magic_slot", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 1)
+			go.animate("/magic_" .. self.slot_id .. "/magic_slot#charges", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 1)
+		else
+			go.set("/magic_" .. self.slot_id .. "/magic_slot#magic_slot", "tint.w", 1)
+			go.set("/magic_" .. self.slot_id .. "/magic_slot#charges", "tint.w", 1)
+		end
+								
+		msg.post("/magic_" .. self.slot_id .. "/button", "enable")
+		msg.post("/magic_" .. self.slot_id .. "/land", "enable")
+		msg.post("/magic_" .. self.slot_id .. "/magic_slot", "enable")
+		
+		return
+	end
+
+	if message_id == hash("reset") then
+		reset_magic(self)
+		return
+	end
+
+	if message_id == hash("conform") then
+		conform_magic(self, message)
+		return
+	end
+	
+end
+
+function show_magic_hint(self, message)
+
+	if not opt_info and not help_on then return end
+
+	hint_playing = true
+	
+	if message == "" then
+		label.set_text("/magic_" .. self.slot_id .. "/balloon#label", balloon_text[self.slot_id])
+	else
+		label.set_text("/magic_" .. self.slot_id .. "/balloon#label", message)
+	end
+	
+	msg.post("/magic_" .. self.slot_id .. "/balloon", "enable")
+			
+	go.set("/magic_" .. self.slot_id .. "/balloon#balloon", "tint.w", 0)
+	go.set("/magic_" .. self.slot_id .. "/balloon#label", "color.w", 0)
+		
+	go.animate("/magic_" .. self.slot_id .. "/balloon#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5)
+	go.animate("/magic_" .. self.slot_id .. "/balloon#label","color.w",  go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.5, 0, hide_balloon)
+	
+end
+
+function hide_balloon(self, url, property)
+	
+	go.animate("/magic_" .. self.slot_id .. "/balloon#balloon","tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 5, disable_ballon)
+	go.animate("/magic_" .. self.slot_id .. "/balloon#label","color.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 5)
+	
+end
+
+function disable_ballon(self, url, property)
+
+	hint_playing = false
+	
+	msg.post("/magic_" .. self.slot_id .. "/balloon", "disable")
+	
+end
+
+function disable_card(self, url, property)
+
+	msg.post("/magic_".. self.slot_id .."/card#card", "disable")
+	
+end
+
+function card_still(self, message_id, message, current_tile, id, sender)
+	sprite.play_flipbook("/magic_".. self.slot_id .."/card#card", hash("still"))
+end
+
+function reset_magic(self)
+
+	-- Return things to the state they were on initialization:
+
+	self.active = false 
+	self.charges = 0
+	self.enabled = false
+	self.unstable = false
+	self.target = 0
+	self.balloon = false
+	self.balloon_delta = 3
+	self.strike_delta = 0
+
+	go.cancel_animations("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w")
+	go.cancel_animations("/magic_" .. self.slot_id .. "/land#tower", "tint.w")
+	
+	go.set("/magic_" .. self.slot_id .. "/land", "scale", self.land_scale)
+	
+	msg.post("/magic_" .. self.slot_id .. "/balloon", "disable")
+	msg.post("/magic_" .. self.slot_id .. "/magic_slot#magic", "disable")
+	msg.post("/magic_" .. self.slot_id .. "/card#card", "disable")
+
+	go.set("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w", 0)
+	go.set("/magic_" .. self.slot_id .. "/land#tower", "tint.w", 0.25)
+
+	if self.slot_id > 8 then
+		msg.post("/magic_" .. self.slot_id .. "/button", "disable")
+		msg.post("/magic_" .. self.slot_id .. "/land", "disable")
+		msg.post("/magic_" .. self.slot_id .. "/magic_slot", "disable")
+	end
+	
+	sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("charges_0"))
+	
+	if self.slot_id > 8 then
+		sprite.play_flipbook("/magic_".. self.slot_id .."/land#tower", hash("still"))
+	end
+
+end
+
+function conform_magic(self, message)
+
+	-- Conform things to the parameters in message:
+
+	self.active = message.active
+	self.enabled = message.enabled
+	self.unstable = message.unstable
+	self.balloon = message.balloon
+	self.charges = message.charges
+	self.target = message.target
+
+	if self.active then
+
+		go.set("/magic_" .. self.slot_id .. "/land#tower", "tint.w", 1)
+				
+		if self.enabled then
+			go.set("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w", 1)
+		else
+			go.set("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w", 0.25)
+		end
+		
+		msg.post("/magic_" .. self.slot_id .. "/magic_slot#magic", "enable")
+
+		if self.slot_id > 8 then
+			sprite.play_flipbook("/magic_".. self.slot_id .."/land#tower", hash("spin"))
+		end
+		
+	else
+		go.set("/magic_" .. self.slot_id .. "/land#tower", "tint.w", 0.25)
+		go.set("/magic_" .. self.slot_id .. "/magic_slot#magic", "tint.w", 0)
+	end
+	
+	sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("charges_" .. self.charges))
+
+	if magic_selected == self.slot_id then
+		
+		sprite.play_flipbook("/magic_".. self.slot_id .."/magic_slot#charges", hash("blink_" .. self.charges))
+		go.set("/magic_".. self.slot_id .."/land", "scale", vmath.vector3(self.land_scale.x + 0.1, self.land_scale.y + 0.1, 1))
+		msg.post("/weapon#weapon", "show")
+		
+	end	
+
+end
+
+function show_magic_help_message(self)
+
+	local m = ""
+
+	if level == self.slot_id - 1 then
+
+		if self.slot_id == 1 then
+			m = "I'm the King of Spades! My Champion will crush you!"
+		elseif self.slot_id == 2 then
+			m = "I'm the Queen of Spades! I'm the master of this deck!"
+		elseif self.slot_id == 3 then
+			m = "I'm the King of Diamonds! I'll freeze your hands to the bone!"
+		elseif self.slot_id == 4 then
+			m = "I'm the Queen of Diamonds! I'll force you to play my way!"
+		elseif self.slot_id == 5 then
+			m = "I'm the King of Clubs! I'll make those cards switch sides!"
+		elseif self.slot_id == 6 then
+			m = "I'm the Queen of Clubs! Who's on to make some copies?"
+		elseif self.slot_id == 7 then
+			m = "I'm the King of Hearts! I'll give those table cards a 'plus'!"
+		elseif self.slot_id == 8 then
+			m = "I'm the Queen of Hearts! Those cards? I'll take something from them!"
+		elseif self.slot_id == 9 then
+			m = "Hahahaha... I have the key to free those cards!"
+		elseif self.slot_id == 10 then
+			m = "Humm... too many keys! Not enough locks!"
+		end
+		
+	else
+
+		if level < self.slot_id - 1 then
+			m = "The power of this magic slot is yet to be discovered!"
+		else
+			if (level == LEVEL_TWIST_3 - 1 or level == LEVEL_TWIST_3) and (self.slot_id == 9 or self.slot_id == 10) then
+				if self.active then
+					if self.enabled then
+						m = balloon_text[self.slot_id]
+					else
+						if self.charges > 0 then
+							m = "This magic power has been used. It'll be available again on the next round."
+						else
+							m = "This magic power is depleted. It'll replenish when you level up."
+						end
+					end
+				else
+					m = "Who knows what can come from the Joker's twisted mind?"
+				end		
+			else
+				if self.enabled then
+					if self.unstable then
+						m = "This magic slot has gone haywire! It'll fire it's power at will!"
+					else
+						m = balloon_text[self.slot_id]
+					end
+				else
+					if self.charges > 0 then
+						m = "This magic power has been used. It'll be available again on the next round."
+					else
+						m = "This magic power is depleted. It'll replenish when you level up."
+					end
+				end
+			end
+		end	
+	end
+	
+	show_magic_hint(self, m)
+
+	msg.post("/help", "hide")
+
+end

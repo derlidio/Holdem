@@ -1,0 +1,21 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		if help_on then
+			msg.post("/help", "message", { text = "These are your chips. Use them when you see no possible hand on the table." } )
+			return
+		end
+
+		snd_play("/sound_fx#menu_click")
+		
+		if chips <= 0 or game_over or menu_active or options_active then
+			factory.create("/table#blocked")
+			return
+		end
+
+		msg.post("/spender", "show")
+		
+	end
+
+end

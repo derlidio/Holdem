@@ -1,0 +1,76 @@
+go.property("sum", 0)
+go.property("sub", 0)
+go.property("active", false)
+go.property("animating", false)
+
+function init(self)
+	msg.post(".", "disable")
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("update") then
+
+		msg.post("/feather", "write")
+
+		self.sub = 0
+		
+		local r = ""
+		local s = ""
+		
+		for i = 1, 5 do
+			r = string.sub(message.ranks, i, i)
+			s = string.sub(message.suits, i, i)
+			label.set_text("#rank_" .. i, r)
+			label.set_text("#rank_" .. i .. "_shadow", r)
+			sprite.play_flipbook("#card_" .. i, hash("suit_" .. s))
+			if s == 'D' or s == 'H' then
+				go.set("#card_" .. i, "tint", vmath.vector4(0.65, 0, 0, 1))
+			else
+				go.set("#card_" .. i, "tint", vmath.vector4(0.15, 0.15, 0.5, 1))
+			end
+		end
+
+		self.sum = message.points
+		
+		label.set_text("#points", "(+" ..self.sum .. ")")
+
+		if not self.active then
+			self.active = true
+			msg.post(".", "enable")
+		end
+		return
+	end
+
+	if message_id == hash("hit") then
+		self.sub = self.sub + message.points
+		label.set_text("#points", "(+" .. self.sum .. ") (-" .. self.sub ..")" )
+		return
+	end
+
+	if message_id == hash("hide") then
+		self.active = false
+		msg.post(".", "disable")
+		return
+	end
+
+	if message_id == hash("click") then
+		if help_on then
+			msg.post("/help", "message", { text = "The result of the last round. Shows the points you earn and lose. Click it to enlarge." } )
+			return
+		end
+		if self.active and not self.animating then
+			self.animating = true
+			go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1.5, 1.5, 1.5), go.EASING_LINEAR, 0.5, 0, restore_last_hand_size)
+		end
+	end
+	
+end
+
+function restore_last_hand_size(self, url, propery)
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1, 1, 1), go.EASING_LINEAR, 0.5, 3, restore_animation_flag)
+end
+
+function restore_animation_flag(self, url, property)
+	self.animating = false
+end

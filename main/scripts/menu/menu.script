@@ -1,0 +1,37 @@
+go.property("initial_position", vmath.vector3())
+go.property("visible", false)
+
+function init(self)
+
+	self.initial_position = go.get(".", "position")
+
+	msg.post("/menu/menu", "disable")
+
+	go.set(".", "position.y", -512)
+
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("switch") then
+
+		snd_play("/sound_fx#gui_switch")
+		
+		if self.visible then
+			msg.post("/menu/menu", "disable")
+			go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, -512, go.EASING_INSINE, 0.25)
+			self.visible = false
+			menu_active = false
+			msg.post("/hud/shield", "fire_particles")
+			msg.post("/hud/scepter", "fire_particles")
+		else
+			msg.post("/menu/menu", "enable")
+			go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, self.initial_position, go.EASING_OUTSINE, 0.25)
+			self.visible = true
+			menu_active = true
+			msg.post("/hud/shield", "stop_particles")
+			msg.post("/hud/scepter", "stop_particles")
+		end
+	end
+
+end

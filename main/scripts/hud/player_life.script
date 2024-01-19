@@ -1,0 +1,126 @@
+go.property("life", 0)
+go.property("x", 0)
+go.property("danger_playing", false)
+go.property("danger_delay", 0)
+
+local prev_x = 0
+
+function init(self)
+	self.x = go.get(".", "position.x")
+	local x = self.x - (175 - (175 * self.life))
+	go.set(".", "position.x", x)
+end
+
+function update(self, dt)
+
+	if self.danger_playing then
+		if self.danger_delay > 0 then
+			self.danger_delay = self.danger_delay - dt
+			if self.danger_delay < 0 then
+				self.danger_delay = 0
+				self.danger_playing = false
+			end
+		end
+	end
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("replenish") then
+		self.life = 1
+		update_player_life(self, false, false)
+	end
+
+	if level_up then return end -- Can't count anything while leveling up.
+
+	--[[
+	if message_id == hash("hit") then
+		self.life = self.life - message.points
+		if self.life < 0 then self.life = 0 end
+		msg.post("/last_hand", "hit", { points = message.points * 100 } )
+		update_player_life(self, true, true)
+		return
+	end
+	--]]
+
+	if message_id == hash("decrement") then
+		self.life = self.life - PUMP_INCREMENT
+		if self.life < 0 then self.life = 0 end
+		update_player_life(self, false)
+		return
+	end
+	
+	if message_id == hash("hit") then
+		penalty = level / 100
+		hit = message.points + penalty
+		self.life = self.life - hit
+		if self.life < 0 then self.life = 0 end
+		msg.post("/last_hand", "hit", { points = hit * 100 } )
+		update_player_life(self, true, true)
+		return
+	end
+	
+	if message_id == hash("sum") then
+		self.life = self.life + message.points
+		if self.life > 1 then self.life = 1 end
+		update_player_life(self, false, false)
+		return
+	end
+
+	if message_id == hash("life") then
+		self.life = message.life
+		if self.life > 1 then self.life = 1 end
+		update_player_life(self, false, false)
+	end
+	
+end
+
+function update_player_life(self, effects, say_danger)
+
+	local x = math.floor(self.x - (175 - (175 * self.life)))
+
+	if x ~= prev_x then
+
+		local dif = math.abs(x - prev_x)
+
+		if effects then
+			snd_play("/sound_fx#drain") 
+			particlefx.play("#drain_green") 
+		end
+
+		if dif >= 10 then
+			go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, x, go.EASING_OUTBOUNCE, 1)
+		elseif dif >= 2 then
+			go.animate(".", "position.x", go.PLAYBACK_ONCE_FORWARD, x, go.EASING_LINEAR, 0.5)
+		else
+			go.set(".", "position.x", x)
+		end
+
+		msg.post("/hud/meter_R", "update", { life = self.life } )
+		
+		prev_x = x
+
+	end
+
+	if self.life == 0 then
+		if not game_over then
+			game_over = true
+			factory.create("/table#game_over", nil, nil, { part = 1 } )
+			factory.create("/table#game_over", nil, nil, { part = 2 } )
+			go.set("/table#crack", "tint.w", 0)
+			go.animate("/table#crack", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.25)
+			msg.post("/table#crack", "enable")
+			particlefx.play("/table#table_blow")
+		end
+	elseif self.life < 0.15 then
+		if say_danger then
+			if not self.danger_playing then
+				self.danger_delay = 3
+				self.danger_playing = true
+				snd_play("/voice_fx#danger")
+			end
+		end
+	end
+	
+end

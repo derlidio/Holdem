@@ -1,0 +1,34 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+		
+		disable_gui = false
+
+		snd_play("/sound_fx#answer")
+
+		msg.post("/menu/new_msgbox", "disable")
+		msg.post("/menu/new_yes", "disable")
+		msg.post("/menu/new_no", "disable")
+		
+		msg.post("/menu/menu", "switch")
+
+		reset_arena()
+		create_deck()
+		
+		msg.post("/hud/score", "update")
+		msg.post("/hud/banner_L", "show")
+		msg.post("/hud/banner_R", "show")
+
+		label.set_text("/hud/level#label", tostring(start))
+		label.set_text("/deck#cards", string.format("%02d", 53))
+
+		msg.post("/last_hand", "hide")
+
+		level = -1
+		level_up = true
+		round_finished = true
+
+		create_chips(5 - game_mode)
+	end
+
+end

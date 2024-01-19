@@ -1,0 +1,76 @@
+go.property("initial_position", vmath.vector3())
+go.property("count", 0)
+go.property("delay", 0)
+go.property("deleting", false)
+go.property("tip_delay", 0)
+go.property("moved", false)
+
+function init(self)
+
+	self.initial_position = go.get("/chips", "position")
+	self.initial_position.z = self.initial_position.z + 0.01 * self.count
+	self.initial_position.y = self.initial_position.y + 8 * chips
+	self.initial_position.x = self.initial_position.x + math.random(-8, 8)
+
+	go.set(".", "scale", vmath.vector3(2, 2, 1))
+	go.set(".", "position", self.initial_position)
+	go.set(".", "position.y", 720 + 32)
+
+	go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, self.initial_position.y, go.EASING_OUTBOUNCE, 1, self.delay)
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1, 1, 1), go.EASING_LINEAR, 0.5, self.delay, play_chip_bounce)
+	
+end
+
+function update(self, dt)
+
+	if self.deleting then return end
+		
+	if self.count > chips then
+		self.deleting = true
+		particlefx.play("#chip_burst")
+		snd_play("/sound_fx#sword_hit")
+		go.animate("#chip", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0, delete_chip)
+	else
+		if opt_tips and (self.count == chips) then
+			if combinations_done and (suggestion == 0) then
+				if self.tip_delay > 0 then
+					self.tip_delay = self.tip_delay - dt
+					if self.tip_delay < 0 then
+						self.tip_delay = 0
+						go.set(".", "euler.z", 0)
+						go.animate(".", "position.y", go.PLAYBACK_ONCE_PINGPONG, self.initial_position.y + 32, go.EASING_INOUTSINE, 0.25)
+						go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, 360, go.EASING_LINEAR, 0.25)
+						snd_play("/sound_fx#chip_bounce")
+					end
+				else
+					self.tip_delay = 10
+				end
+			end
+		end
+	end
+
+	if self.count == chips then
+		if spender_active then
+			if not self.moved then
+				self.moved = true
+				local p = go.get("/spender", "position")
+				p.z = self.initial_position.z
+				go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, p, go.EASING_OUTBOUNCE, 0.5)
+			end
+		else
+			if self.moved then
+				self.moved = false
+				go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, self.initial_position, go.EASING_OUTBOUNCE, 0.5)
+			end
+		end
+	end
+	
+end
+
+function delete_chip(self, url, property)
+	go.delete()
+end
+
+function play_chip_bounce(self, url, property)
+	snd_play("/sound_fx#chip_bounce")
+end

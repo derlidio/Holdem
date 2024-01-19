@@ -1,0 +1,4 @@
+tile_set: "/main/tiles/charges.tilesource"
+default_animation: "charges_0"
+material: "/builtins/materials/sprite.material"
+blend_mode: BLEND_MODE_ALPHA

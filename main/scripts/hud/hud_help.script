@@ -1,0 +1,28 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		if help_on then
+			
+			local m = ""
+			
+			if 		go.get_id() == hash("/hud/score_help") then
+				m = "That's your score, up to this moment. How high can you go?"
+			elseif 	go.get_id() == hash("/hud/level_help") then
+				m = "That's the current level. You level up by draining all energy from your contender."
+			elseif 	go.get_id() == hash("/hud/meter_L_help") then
+				m = "The Shake-O-Meter. It measures the impact of the cards explosions."
+			elseif 	go.get_id() == hash("/hud/meter_R_help") then
+				m = "The Game State meter. Better to keep it 'Good'"
+			elseif 	go.get_id() == hash("/hud/energy_L_help") then
+				m = "That's your contender's energy bar. You must drain all of it in order to level up."
+			elseif 	go.get_id() == hash("/hud/energy_R_help") then
+				m = "That's your energy bar. Keep it high, if you want to stay long at the table."
+			end
+
+			msg.post("/help", "message", { text = m } )
+			
+		end
+	end
+	
+end

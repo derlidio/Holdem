@@ -1,0 +1,2 @@
+prototype: "/main/objects/lightning.go"
+load_dynamically: false

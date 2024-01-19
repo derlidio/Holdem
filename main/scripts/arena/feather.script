@@ -1,0 +1,27 @@
+go.property("initial_position", vmath.vector3())
+
+function init(self)
+
+	self.initial_position = go.get(".", "position")
+
+	local r = go.get(".", "euler.z")
+	
+	go.animate(".", "position.y", go.PLAYBACK_LOOP_PINGPONG, self.initial_position.y + 8, go.EASING_INOUTSINE, 5)
+	go.animate(".", "euler.z", go.PLAYBACK_LOOP_PINGPONG, r - 5, go.EASING_INOUTSINE, 10)
+	go.animate(".", "scale", go.PLAYBACK_LOOP_PINGPONG, vmath.vector3(0.95, 0.95, 0.95), go.EASING_INOUTSINE, 8)
+
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("write") then
+		particlefx.play("#feather_ink")
+		go.animate(".", "position.x", go.PLAYBACK_ONCE_PINGPONG, self.initial_position.x - 160, go.EASING_OUTSINE, 0.5, 0, stop_feather_ink)
+		go.animate("/feather#sprite", "tint", go.PLAYBACK_ONCE_PINGPONG, vmath.vector4(2, 2, 2,1), go.EASING_INOUTSINE, 1)
+	end
+	
+end
+
+function stop_feather_ink(self, url, property)
+	particlefx.stop("#feather_ink")
+end

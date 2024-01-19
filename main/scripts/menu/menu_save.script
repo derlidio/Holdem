@@ -1,0 +1,23 @@
+function on_message(self, message_id, message, sender)
+	
+	if message_id == hash("click") then
+
+		if game_over then
+			factory.create("/table#blocked")
+			return
+		end
+
+		go.set("/menu/save_msgbox", "scale", vmath.vector3(0,0,1))
+		go.animate("/menu/save_msgbox", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1,1,1), go.EASING_OUTBOUNCE, 0.25)
+		
+		msg.post("/menu/save_msgbox", "enable")
+		msg.post("/menu/save_yes", "enable")
+		msg.post("/menu/save_no", "enable")
+
+		snd_play("/sound_fx#question")
+		
+		disable_gui = true
+	end
+
+end
+

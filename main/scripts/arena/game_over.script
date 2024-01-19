@@ -1,0 +1,54 @@
+go.property("part", 0)
+go.property("deleting", false)
+
+function init(self)
+
+	go.set(".", "position", vmath.vector3(640, 752, 1))
+	go.set(".", "scale", vmath.vector3(2, 2, 1))
+
+	local p = go.get("/table", "position")
+
+	if self.part == 1 then
+		sprite.play_flipbook("#word", hash("Game"))
+		p.y = p.y + 32
+	else
+		sprite.play_flipbook("#word", hash("Over"))
+		p.y = p.y - 32
+	end
+	
+	p.z = 0.7
+
+	go.animate(".", "position", go.PLAYBACK_ONCE_FORWARD, p, go.EASING_OUTBOUNCE, 1, 0, woble_word)
+	go.animate(".", "scale", go.PLAYBACK_ONCE_FORWARD, vmath.vector3(1, 1, 1), go.EASING_OUTBOUNCE, 1)
+	
+end
+
+function update(self, dt)
+
+	if not game_over then
+		if not self.deleting then
+			self.deleting = true
+			go.animate("#word", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.5, 0, delete_game_over)
+		end
+	end
+		
+end
+
+function woble_word(self, url, property)
+
+	local p = go.get(".", "position")
+
+	p.y = p.y + 8
+	
+	go.animate(".", "position", go.PLAYBACK_LOOP_PINGPONG, p, go.EASING_INOUTSINE, 5)
+	go.animate(".", "scale", go.PLAYBACK_LOOP_PINGPONG, vmath.vector3(1.1, 1.1, 1), go.EASING_INOUTSINE, 5)
+
+	if self.part == 1 then
+		snd_play("/voice_fx#game_over")
+	end
+	
+end
+
+function delete_game_over()
+	go.delete()
+end

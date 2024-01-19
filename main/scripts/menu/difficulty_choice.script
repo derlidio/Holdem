@@ -1,0 +1,28 @@
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("click") then
+
+		msg.post("/weapon#weapon", "show_emitter")
+		msg.post(difficulty_id, "close")
+
+		local url = msg.url()
+		
+		if url.fragment == hash("opt_easy") then
+			game_mode = MODE_EASY
+		elseif url.fragment == hash("opt_casual") then
+			game_mode = MODE_NORMAL
+		elseif url.fragment == hash("opt_hard") then
+			game_mode = MODE_HARD
+		elseif url.fragment == hash("opt_extreme") then
+			game_mode = MODE_EXTREME
+		end
+
+		msg.post("/deck", "difficulty")
+
+		if (level == 0) and (score == 0) and not chips_spent then
+			create_chips(5 - game_mode)
+		end
+
+	end
+
+end

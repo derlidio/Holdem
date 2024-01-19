@@ -1,0 +1,25 @@
+function init(self)
+	
+	go.set("#sprite", "tint.w", 0)
+	msg.post(".", "disable")
+	
+end
+
+function on_message(self, message_id, message, sender)
+
+	if message_id == hash("show") then
+		wait_on = true
+		go.animate("#sprite", "tint.w", go.PLAYBACK_ONCE_FORWARD, 1, go.EASING_LINEAR, 0.25, 0, hide_wait_msg)
+		msg.post(".", "enable")
+	end
+	
+end
+
+function hide_wait_msg(self, url, property)
+	go.animate("#sprite", "tint.w", go.PLAYBACK_ONCE_FORWARD, 0, go.EASING_LINEAR, 0.25, 0.25, disable_wait_msg)
+end
+
+function disable_wait_msg(self, url, property)
+	wait_on = false
+	msg.post(".", "disable")
+end
