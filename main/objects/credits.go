@@ -16,10 +16,13 @@ components {
 embedded_components {
   id: "parchment"
   type: "sprite"
-  data: "tile_set: \"/main/atlases/parchments.atlas\"\n"
-  "default_animation: \"Credits\"\n"
+  data: "default_animation: \"Credits\"\n"
   "material: \"/builtins/materials/sprite.material\"\n"
   "blend_mode: BLEND_MODE_ALPHA\n"
+  "textures {\n"
+  "  sampler: \"texture_sampler\"\n"
+  "  texture: \"/main/atlases/parchments.atlas\"\n"
+  "}\n"
   ""
   position {
     x: 0.0
@@ -40,12 +43,6 @@ embedded_components {
   "  x: 64.0\n"
   "  y: 32.0\n"
   "  z: 0.0\n"
-  "  w: 0.0\n"
-  "}\n"
-  "scale {\n"
-  "  x: 1.0\n"
-  "  y: 1.0\n"
-  "  z: 1.0\n"
   "  w: 0.0\n"
   "}\n"
   "color {\n"
@@ -72,8 +69,8 @@ embedded_components {
   "blend_mode: BLEND_MODE_ALPHA\n"
   "line_break: false\n"
   "text: \"CLOSE\"\n"
-  "font: \"/builtins/fonts/system_font.font\"\n"
-  "material: \"/builtins/fonts/label.material\"\n"
+  "font: \"/assets/fonts/narrow.font\"\n"
+  "material: \"/assets/fonts/label.material\"\n"
   ""
   position {
     x: 122.0
@@ -113,6 +110,7 @@ embedded_components {
   "    }\n"
   "    index: 0\n"
   "    count: 1\n"
+  "    id: \"\"\n"
   "  }\n"
   "  data: 32.0\n"
   "}\n"

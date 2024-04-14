@@ -1,0 +1,10 @@
+name: "font"
+tags: "gui"
+vertex_program: "/assets/fonts/font.vp"
+fragment_program: "/assets/fonts/font.fp"
+vertex_space: VERTEX_SPACE_WORLD
+vertex_constants {
+  name: "view_proj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}
+max_page_count: 0

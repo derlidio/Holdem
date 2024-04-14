@@ -22,12 +22,6 @@ embedded_components {
   "  z: 0.0\n"
   "  w: 0.0\n"
   "}\n"
-  "scale {\n"
-  "  x: 1.0\n"
-  "  y: 1.0\n"
-  "  z: 1.0\n"
-  "  w: 0.0\n"
-  "}\n"
   "color {\n"
   "  x: 1.0\n"
   "  y: 1.0\n"
@@ -52,8 +46,8 @@ embedded_components {
   "blend_mode: BLEND_MODE_ADD\n"
   "line_break: false\n"
   "text: \"0%\"\n"
-  "font: \"/builtins/fonts/system_font.font\"\n"
-  "material: \"/builtins/fonts/label.material\"\n"
+  "font: \"/assets/fonts/narrow.font\"\n"
+  "material: \"/assets/fonts/label.material\"\n"
   ""
   position {
     x: 0.0
@@ -70,10 +64,13 @@ embedded_components {
 embedded_components {
   id: "pill_green"
   type: "sprite"
-  data: "tile_set: \"/main/tiles/pill.tilesource\"\n"
-  "default_animation: \"green_still\"\n"
+  data: "default_animation: \"green_still\"\n"
   "material: \"/builtins/materials/sprite.material\"\n"
   "blend_mode: BLEND_MODE_ALPHA\n"
+  "textures {\n"
+  "  sampler: \"texture_sampler\"\n"
+  "  texture: \"/main/tiles/pill.tilesource\"\n"
+  "}\n"
   ""
   position {
     x: 32.0
@@ -90,10 +87,13 @@ embedded_components {
 embedded_components {
   id: "pill_red"
   type: "sprite"
-  data: "tile_set: \"/main/tiles/pill.tilesource\"\n"
-  "default_animation: \"red_still\"\n"
+  data: "default_animation: \"red_still\"\n"
   "material: \"/builtins/materials/sprite.material\"\n"
   "blend_mode: BLEND_MODE_ALPHA\n"
+  "textures {\n"
+  "  sampler: \"texture_sampler\"\n"
+  "  texture: \"/main/tiles/pill.tilesource\"\n"
+  "}\n"
   ""
   position {
     x: -32.0
