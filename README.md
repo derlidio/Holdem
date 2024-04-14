@@ -19,7 +19,3 @@ not transferable. Basically, all shields, swords, and crowns icons came from the
 
 The rest of the assets are original art made by me, including images, sound fx,
 and soundtrack.
-
-So, be warned that this code is free to use, but the assests are not!
-
----
